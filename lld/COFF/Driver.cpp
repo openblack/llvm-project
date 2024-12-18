@@ -2127,6 +2127,10 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
   for (auto *arg : args.filtered(OPT_section))
     parseSection(arg->getValue());
 
+  // Handle /sectionvsize
+  for (auto *arg : args.filtered(OPT_sectionvsize))
+    parseSectionVSize(arg->getValue());
+
   // Handle /align
   if (auto *arg = args.getLastArg(OPT_align)) {
     parseNumbers(arg->getValue(), &config->align);

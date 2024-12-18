@@ -234,6 +234,7 @@ private:
   void parseMerge(StringRef);
   void parsePDBPageSize(StringRef);
   void parseSection(StringRef);
+  void parseSectionVSize(StringRef);
   void parseAligncomm(StringRef);
 
   // Parses a string in the form of "[:<integer>]"

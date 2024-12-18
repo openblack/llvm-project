@@ -230,6 +230,15 @@ void LinkerDriver::parseSection(StringRef s) {
   ctx.config.section[name] = parseSectionAttributes(ctx, attrs);
 }
 
+// Parses /sectionvsize option argument.
+void LinkerDriver::parseSectionVSize(StringRef s) {
+  auto [name, vsizestr] = s.split(',');
+  uint64_t vsize;
+  if (vsizestr.getAsInteger(0, vsize) || name.empty())
+    Fatal(ctx) << "/sectionvsize: invalid argument: " << s;
+  ctx.config.sectionVSize[name] = vsize;
+}
+
 // Parses /aligncomm option argument.
 void LinkerDriver::parseAligncomm(StringRef s) {
   auto [name, align] = s.split(',');

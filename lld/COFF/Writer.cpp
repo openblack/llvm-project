@@ -1643,6 +1643,9 @@ void Writer::assignAddresses() {
       if (c->hasData)
         rawSize = alignTo(virtualSize, config->fileAlign);
     }
+    auto explicitVSize = ctx.config.sectionVSize.find(sec->name);
+    if (explicitVSize != ctx.config.sectionVSize.end())
+      virtualSize = explicitVSize->second;
     if (virtualSize > UINT32_MAX)
       Err(ctx) << "section larger than 4 GiB: " << sec->name;
     sec->header.VirtualSize = virtualSize;
