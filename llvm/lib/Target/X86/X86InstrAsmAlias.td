@@ -717,6 +717,7 @@ multiclass FpUnaryAlias<string Mnemonic, Instruction Inst, bit EmitAlias = 1> {
 }
 
 defm : FpUnaryAlias<"fadd",   ADD_FST0r, 0>;
+defm : FpUnaryAlias<"fadd.s",   ADD_FrST0, 0>;
 defm : FpUnaryAlias<"faddp",  ADD_FPrST0, 0>;
 defm : FpUnaryAlias<"fsub",   SUB_FST0r, 0>;
 defm : FpUnaryAlias<"fsub{|r}p",  SUBR_FPrST0, 0>;
