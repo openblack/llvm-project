@@ -29,6 +29,142 @@ def : InstAlias<"mov.s\t{$src, $dst|$dst, $src}",
 def : InstAlias<"mov.s\t{$src, $dst|$dst, $src}",
                 (MOV64rr_REV GR64:$dst, GR64:$src), 0, "att">;
 
+def : InstAlias<"cmp{b}.s\t{$src, $dst|$dst, $src}",
+                (CMP8rr_REV GR8:$dst, GR8:$src), 0>;
+def : InstAlias<"cmp{w}.s\t{$src, $dst|$dst, $src}",
+                (CMP16rr_REV GR16:$dst, GR16:$src), 0>;
+def : InstAlias<"cmp{d}.s\t{$src, $dst|$dst, $src}",
+                (CMP32rr_REV GR32:$dst, GR32:$src), 0>;
+def : InstAlias<"cmp{q}.s\t{$src, $dst|$dst, $src}",
+                (CMP64rr_REV GR64:$dst, GR64:$src), 0>;
+def : InstAlias<"cmp.s\t{$src, $dst|$dst, $src}",
+                (CMP8rr_REV GR8:$dst, GR8:$src), 0, "att">;
+def : InstAlias<"cmp.s\t{$src, $dst|$dst, $src}",
+                (CMP16rr_REV GR16:$dst, GR16:$src), 0, "att">;
+def : InstAlias<"cmp.s\t{$src, $dst|$dst, $src}",
+                (CMP32rr_REV GR32:$dst, GR32:$src), 0, "att">;
+def : InstAlias<"cmp.s\t{$src, $dst|$dst, $src}",
+                (CMP64rr_REV GR64:$dst, GR64:$src), 0, "att">;
+
+def : InstAlias<"and{b}.s\t{$src, $dst|$dst, $src}",
+                (AND8rr_REV GR8:$dst, GR8:$src), 0>;
+def : InstAlias<"and{w}.s\t{$src, $dst|$dst, $src}",
+                (AND16rr_REV GR16:$dst, GR16:$src), 0>;
+def : InstAlias<"and{d}.s\t{$src, $dst|$dst, $src}",
+                (AND32rr_REV GR32:$dst, GR32:$src), 0>;
+def : InstAlias<"and{q}.s\t{$src, $dst|$dst, $src}",
+                (AND64rr_REV GR64:$dst, GR64:$src), 0>;
+def : InstAlias<"and.s\t{$src, $dst|$dst, $src}",
+                (AND8rr_REV GR8:$dst, GR8:$src), 0, "att">;
+def : InstAlias<"and.s\t{$src, $dst|$dst, $src}",
+                (AND16rr_REV GR16:$dst, GR16:$src), 0, "att">;
+def : InstAlias<"and.s\t{$src, $dst|$dst, $src}",
+                (AND32rr_REV GR32:$dst, GR32:$src), 0, "att">;
+def : InstAlias<"and.s\t{$src, $dst|$dst, $src}",
+                (AND64rr_REV GR64:$dst, GR64:$src), 0, "att">;
+
+def : InstAlias<"or{b}.s\t{$src, $dst|$dst, $src}",
+                (OR8rr_REV GR8:$dst, GR8:$src), 0>;
+def : InstAlias<"or{w}.s\t{$src, $dst|$dst, $src}",
+                (OR16rr_REV GR16:$dst, GR16:$src), 0>;
+def : InstAlias<"or{d}.s\t{$src, $dst|$dst, $src}",
+                (OR32rr_REV GR32:$dst, GR32:$src), 0>;
+def : InstAlias<"or{q}.s\t{$src, $dst|$dst, $src}",
+                (OR64rr_REV GR64:$dst, GR64:$src), 0>;
+def : InstAlias<"or.s\t{$src, $dst|$dst, $src}",
+                (OR8rr_REV GR8:$dst, GR8:$src), 0, "att">;
+def : InstAlias<"or.s\t{$src, $dst|$dst, $src}",
+                (OR16rr_REV GR16:$dst, GR16:$src), 0, "att">;
+def : InstAlias<"or.s\t{$src, $dst|$dst, $src}",
+                (OR32rr_REV GR32:$dst, GR32:$src), 0, "att">;
+def : InstAlias<"or.s\t{$src, $dst|$dst, $src}",
+                (OR64rr_REV GR64:$dst, GR64:$src), 0, "att">;
+
+def : InstAlias<"xor{b}.s\t{$src, $dst|$dst, $src}",
+                (XOR8rr_REV GR8:$dst, GR8:$src), 0>;
+def : InstAlias<"xor{w}.s\t{$src, $dst|$dst, $src}",
+                (XOR16rr_REV GR16:$dst, GR16:$src), 0>;
+def : InstAlias<"xor{d}.s\t{$src, $dst|$dst, $src}",
+                (XOR32rr_REV GR32:$dst, GR32:$src), 0>;
+def : InstAlias<"xor{q}.s\t{$src, $dst|$dst, $src}",
+                (XOR64rr_REV GR64:$dst, GR64:$src), 0>;
+def : InstAlias<"xor.s\t{$src, $dst|$dst, $src}",
+                (XOR8rr_REV GR8:$dst, GR8:$src), 0, "att">;
+def : InstAlias<"xor.s\t{$src, $dst|$dst, $src}",
+                (XOR16rr_REV GR16:$dst, GR16:$src), 0, "att">;
+def : InstAlias<"xor.s\t{$src, $dst|$dst, $src}",
+                (XOR32rr_REV GR32:$dst, GR32:$src), 0, "att">;
+def : InstAlias<"xor.s\t{$src, $dst|$dst, $src}",
+                (XOR64rr_REV GR64:$dst, GR64:$src), 0, "att">;
+
+def : InstAlias<"add{b}.s\t{$src, $dst|$dst, $src}",
+                (ADD8rr_REV GR8:$dst, GR8:$src), 0>;
+def : InstAlias<"add{w}.s\t{$src, $dst|$dst, $src}",
+                (ADD16rr_REV GR16:$dst, GR16:$src), 0>;
+def : InstAlias<"add{d}.s\t{$src, $dst|$dst, $src}",
+                (ADD32rr_REV GR32:$dst, GR32:$src), 0>;
+def : InstAlias<"add{q}.s\t{$src, $dst|$dst, $src}",
+                (ADD64rr_REV GR64:$dst, GR64:$src), 0>;
+def : InstAlias<"add.s\t{$src, $dst|$dst, $src}",
+                (ADD8rr_REV GR8:$dst, GR8:$src), 0, "att">;
+def : InstAlias<"add.s\t{$src, $dst|$dst, $src}",
+                (ADD16rr_REV GR16:$dst, GR16:$src), 0, "att">;
+def : InstAlias<"add.s\t{$src, $dst|$dst, $src}",
+                (ADD32rr_REV GR32:$dst, GR32:$src), 0, "att">;
+def : InstAlias<"add.s\t{$src, $dst|$dst, $src}",
+                (ADD64rr_REV GR64:$dst, GR64:$src), 0, "att">;
+
+def : InstAlias<"sub{b}.s\t{$src, $dst|$dst, $src}",
+                (SUB8rr_REV GR8:$dst, GR8:$src), 0>;
+def : InstAlias<"sub{w}.s\t{$src, $dst|$dst, $src}",
+                (SUB16rr_REV GR16:$dst, GR16:$src), 0>;
+def : InstAlias<"sub{d}.s\t{$src, $dst|$dst, $src}",
+                (SUB32rr_REV GR32:$dst, GR32:$src), 0>;
+def : InstAlias<"sub{q}.s\t{$src, $dst|$dst, $src}",
+                (SUB64rr_REV GR64:$dst, GR64:$src), 0>;
+def : InstAlias<"sub.s\t{$src, $dst|$dst, $src}",
+                (SUB8rr_REV GR8:$dst, GR8:$src), 0, "att">;
+def : InstAlias<"sub.s\t{$src, $dst|$dst, $src}",
+                (SUB16rr_REV GR16:$dst, GR16:$src), 0, "att">;
+def : InstAlias<"sub.s\t{$src, $dst|$dst, $src}",
+                (SUB32rr_REV GR32:$dst, GR32:$src), 0, "att">;
+def : InstAlias<"sub.s\t{$src, $dst|$dst, $src}",
+                (SUB64rr_REV GR64:$dst, GR64:$src), 0, "att">;
+
+def : InstAlias<"adc{b}.s\t{$src, $dst|$dst, $src}",
+                (ADC8rr_REV GR8:$dst, GR8:$src), 0>;
+def : InstAlias<"adc{w}.s\t{$src, $dst|$dst, $src}",
+                (ADC16rr_REV GR16:$dst, GR16:$src), 0>;
+def : InstAlias<"adc{d}.s\t{$src, $dst|$dst, $src}",
+                (ADC32rr_REV GR32:$dst, GR32:$src), 0>;
+def : InstAlias<"adc{q}.s\t{$src, $dst|$dst, $src}",
+                (ADC64rr_REV GR64:$dst, GR64:$src), 0>;
+def : InstAlias<"adc.s\t{$src, $dst|$dst, $src}",
+                (ADC8rr_REV GR8:$dst, GR8:$src), 0, "att">;
+def : InstAlias<"adc.s\t{$src, $dst|$dst, $src}",
+                (ADC16rr_REV GR16:$dst, GR16:$src), 0, "att">;
+def : InstAlias<"adc.s\t{$src, $dst|$dst, $src}",
+                (ADC32rr_REV GR32:$dst, GR32:$src), 0, "att">;
+def : InstAlias<"adc.s\t{$src, $dst|$dst, $src}",
+                (ADC64rr_REV GR64:$dst, GR64:$src), 0, "att">;
+
+def : InstAlias<"sbb{b}.s\t{$src, $dst|$dst, $src}",
+                (SBB8rr_REV GR8:$dst, GR8:$src), 0>;
+def : InstAlias<"sbb{w}.s\t{$src, $dst|$dst, $src}",
+                (SBB16rr_REV GR16:$dst, GR16:$src), 0>;
+def : InstAlias<"sbb{d}.s\t{$src, $dst|$dst, $src}",
+                (SBB32rr_REV GR32:$dst, GR32:$src), 0>;
+def : InstAlias<"sbb{q}.s\t{$src, $dst|$dst, $src}",
+                (SBB64rr_REV GR64:$dst, GR64:$src), 0>;
+def : InstAlias<"sbb.s\t{$src, $dst|$dst, $src}",
+                (SBB8rr_REV GR8:$dst, GR8:$src), 0, "att">;
+def : InstAlias<"sbb.s\t{$src, $dst|$dst, $src}",
+                (SBB16rr_REV GR16:$dst, GR16:$src), 0, "att">;
+def : InstAlias<"sbb.s\t{$src, $dst|$dst, $src}",
+                (SBB32rr_REV GR32:$dst, GR32:$src), 0, "att">;
+def : InstAlias<"sbb.s\t{$src, $dst|$dst, $src}",
+                (SBB64rr_REV GR64:$dst, GR64:$src), 0, "att">;
+
 // MONITORX/MWAITX Instructions Alias
 def : InstAlias<"mwaitx\t{%eax, %ecx, %ebx|ebx, ecx, eax}", (MWAITXrrr)>,
       Requires<[ Not64BitMode ]>;
