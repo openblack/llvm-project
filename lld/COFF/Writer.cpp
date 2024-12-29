@@ -2368,7 +2368,7 @@ void Writer::writeSections() {
   uint8_t *buf = buffer->getBufferStart();
   for (OutputSection *sec : ctx.outputSections) {
     uint8_t *secBuf = buf + sec->getFileOff();
-    // Fill gaps between functions in .text with INT3 instructions
+    // Fill gaps between functions in .text with NOP instructions
     // instead of leaving as NUL bytes (which can be interpreted as
     // ADD instructions). Only fill the gaps between chunks. Most
     // chunks overwrite it anyway, but uninitialized data chunks
@@ -2378,10 +2378,10 @@ void Writer::writeSections() {
       uint32_t prevEnd = 0;
       for (Chunk *c : sec->chunks) {
         uint32_t off = c->getRVA() - sec->getRVA();
-        memset(secBuf + prevEnd, 0xCC, off - prevEnd);
+        memset(secBuf + prevEnd, 0x90, off - prevEnd);
         prevEnd = off + c->getSize();
       }
-      memset(secBuf + prevEnd, 0xCC, sec->getRawSize() - prevEnd);
+      memset(secBuf + prevEnd, 0x90, sec->getRawSize() - prevEnd);
     }
 
     parallelForEach(sec->chunks, [&](Chunk *c) {
