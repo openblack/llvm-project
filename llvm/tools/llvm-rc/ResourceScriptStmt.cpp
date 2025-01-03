@@ -150,7 +150,7 @@ const StringMap<Control::CtlInfo> Control::SupportedCtls = {
     {"LTEXT", CtlInfo{0x50020000, ClsStatic, true}},
     {"CTEXT", CtlInfo{0x50020001, ClsStatic, true}},
     {"RTEXT", CtlInfo{0x50020002, ClsStatic, true}},
-    {"ICON", CtlInfo{0x50000003, ClsStatic, true}},
+    {"ICON", CtlInfo{0x50000002, ClsStatic, true}},
     {"PUSHBUTTON", CtlInfo{0x50010000, ClsButton, true}},
     {"DEFPUSHBUTTON", CtlInfo{0x50010001, ClsButton, true}},
     {"AUTO3STATE", CtlInfo{0x50010006, ClsButton, true}},

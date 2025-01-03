@@ -15,6 +15,8 @@ jobs:
         run:  cmake -Bbuild -Sllvm -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_ENABLE_PROJECTS="lld;clang"
       - name: Build clang
         run:  cmake --build build --target clang
+      - name: Build llvm-rc
+        run:  cmake --build build --target llvm-rc
       - name: Build lld
         run:  cmake --build build --target lld
       - name: Upload Artifact
