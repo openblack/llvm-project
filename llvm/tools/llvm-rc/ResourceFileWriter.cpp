@@ -374,7 +374,7 @@ Error ResourceFileWriter::writeCString(StringRef Str, bool WriteTerminator) {
                                 Params.CodePage));
   for (auto Ch : ProcessedString)
     writeInt<uint16_t>(Ch);
-  if (WriteTerminator)
+  if (!ProcessedString.empty() && WriteTerminator)
     writeInt<uint16_t>(0);
   return Error::success();
 }
@@ -384,8 +384,11 @@ Error ResourceFileWriter::writeIdentifier(const IntOrString &Ident) {
 }
 
 Error ResourceFileWriter::writeIntOrString(const IntOrString &Value) {
-  if (!Value.isInt())
-    return writeCString(Value.getString());
+  if (!Value.isInt()) {
+    Error result = writeCString(Value.getString(), false);
+    writeInt<uint16_t>(0);
+    return result;
+  }
 
   writeInt<uint16_t>(0xFFFF);
   writeInt<uint16_t>(Value.getInt());
