@@ -7351,6 +7351,10 @@ ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D, const ParsedAttr &AL,
   case ParsedAttr::AT_VTablePointerAuthentication:
     handleVTablePointerAuthentication(S, D, AL);
     break;
+
+  case clang::ParsedAttr::AT_MOV32rr_REV:
+    handleSimpleAttribute<MOV32rr_REVAttr>(S, D, AL);
+    break;
   }
 }
 

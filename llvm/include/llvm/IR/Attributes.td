@@ -466,3 +466,6 @@ def : MergeRule<"adjustCallerStackProbeSize">;
 def : MergeRule<"adjustMinLegalVectorWidth">;
 def : MergeRule<"adjustNullPointerValidAttr">;
 def : MergeRule<"setAND<MustProgressAttr>">;
+
+/// Use alternative MOV instruction opcode.
+def MOV32rr_REV : EnumAttr<"MOV32rr_REV", IntersectPreserve, [FnAttr]>;

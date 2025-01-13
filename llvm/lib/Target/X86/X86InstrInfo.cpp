@@ -4298,11 +4298,15 @@ void X86InstrInfo::copyPhysReg(MachineBasicBlock &MBB,
   bool HasAVX = Subtarget.hasAVX();
   bool HasVLX = Subtarget.hasVLX();
   bool HasEGPR = Subtarget.hasEGPR();
+
+  const MachineFunction &MF = *MBB.getParent();
+  const Function &F = MF.getFunction();
+
   unsigned Opc = 0;
   if (X86::GR64RegClass.contains(DestReg, SrcReg))
     Opc = X86::MOV64rr;
   else if (X86::GR32RegClass.contains(DestReg, SrcReg))
-    Opc = X86::MOV32rr;
+    Opc = F.hasFnAttribute(Attribute::AttrKind::MOV32rr_REV) ? X86::MOV32rr_REV : X86::MOV32rr;
   else if (X86::GR16RegClass.contains(DestReg, SrcReg))
     Opc = X86::MOV16rr;
   else if (X86::GR8RegClass.contains(DestReg, SrcReg)) {

@@ -4939,3 +4939,10 @@ def NoTrivialAutoVarInit: InheritableAttr {
   let Documentation = [NoTrivialAutoVarInitDocs];
   let SimpleHandler = 1;
 }
+
+def MOV32rr_REV: InheritableAttr {
+  let Spellings = [GNU<"MOV32rr_REV">];
+  let Subjects = SubjectList<[Function]>;
+  let Documentation = [Undocumented];
+  let SimpleHandler = 1;
+}
