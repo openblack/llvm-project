@@ -19,8 +19,13 @@ jobs:
         run:  cmake --build build --target llvm-rc
       - name: Build lld
         run:  cmake --build build --target lld
+      - name: Install everything
+        run:  |
+          cmake --install build --prefix install --component clang
+          cmake --install build --prefix install --component lld
+          cmake --install build --prefix install --component llvm-rc
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: llvm-${{ matrix.os }}
-          path: build/**/bin
+          path: install/
