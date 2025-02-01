@@ -665,6 +665,7 @@ bool X86DAGToDAGISel::isMaskZeroExtended(SDNode *N) const {
 
 bool
 X86DAGToDAGISel::IsProfitableToFold(SDValue N, SDNode *U, SDNode *Root) const {
+  return false;
   if (OptLevel == CodeGenOptLevel::None)
     return false;
 

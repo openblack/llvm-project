@@ -8134,8 +8134,7 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
       NewOpc = X86::CMP16ri;
       break;
     case X86::TEST32rr:
-      NewOpc = X86::CMP32ri;
-      break;
+      return nullptr;
     case X86::TEST64rr:
       NewOpc = X86::CMP64ri32;
       break;
