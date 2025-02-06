@@ -24,6 +24,7 @@ jobs:
           cmake --install build --prefix install --component clang
           cmake --install build --prefix install --component lld
           cmake --install build --prefix install --component llvm-rc
+          cmake --install build --prefix install --component clang-resource-headers
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
