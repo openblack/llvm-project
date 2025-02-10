@@ -20,7 +20,7 @@ jobs:
       - name: Build llvm-objcopy
         run:  cmake --build build --target llvm-objcopy
       - name: Build llvm-strip
-        run:  cmake --build build --target llvm-stripllvm-objcopy
+        run:  cmake --build build --target llvm-strip
       - name: Build lld
         run:  cmake --build build --target lld
       - name: Build libc
