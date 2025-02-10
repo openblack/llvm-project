@@ -17,8 +17,10 @@ jobs:
         run:  cmake --build build --target clang
       - name: Build llvm-rc
         run:  cmake --build build --target llvm-rc
+      - name: Build llvm-objcopy
+        run:  cmake --build build --target llvm-objcopy
       - name: Build llvm-strip
-        run:  cmake --build build --target llvm-strip
+        run:  cmake --build build --target llvm-stripllvm-objcopy
       - name: Build lld
         run:  cmake --build build --target lld
       - name: Build libc
