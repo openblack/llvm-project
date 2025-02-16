@@ -17,6 +17,8 @@ jobs:
         run:  cmake --build build --target clang
       - name: Build llvm-rc
         run:  cmake --build build --target llvm-rc
+      - name: Build llvm-ar
+        run:  cmake --build build --target llvm-ar
       - name: Build lld
         run:  cmake --build build --target lld
       - name: Install everything
@@ -24,6 +26,7 @@ jobs:
           cmake --install build --prefix install --component clang
           cmake --install build --prefix install --component lld
           cmake --install build --prefix install --component llvm-rc
+          cmake --install build --prefix install --component llvm-ar
           cmake --install build --prefix install --component clang-resource-headers
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
