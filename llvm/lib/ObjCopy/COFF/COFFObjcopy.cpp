@@ -154,6 +154,16 @@ static Error dumpSection(Object &O, StringRef SectionName, StringRef FileName) {
                            SectionName.str().c_str());
 }
 
+static Error updateAndRemoveSymbols(const CommonConfig &Config,
+  const COFFConfig &COFFConfig, Object &Obj) {
+  for (Symbol &Sym : Obj.getMutableSymbols()) {
+    // SymbolsToWeaken applies to both STB_GLOBAL and STB_GNU_UNIQUE.
+    if (Config.SymbolsToWeaken.matches(Sym.Name))
+      Sym.Sym.StorageClass = IMAGE_SYM_CLASS_WEAK_EXTERNAL;
+  }
+  return Error::success();
+}
+
 static Error handleArgs(const CommonConfig &Config,
                         const COFFConfig &COFFConfig, Object &Obj) {
   for (StringRef Op : Config.DumpSection) {
@@ -181,6 +191,9 @@ static Error handleArgs(const CommonConfig &Config,
 
     return false;
   });
+
+  if (Error E = updateAndRemoveSymbols(Config, COFFConfig, Obj))
+    return E;
 
   if (Config.OnlyKeepDebug) {
     // For --only-keep-debug, we keep all other sections, but remove their

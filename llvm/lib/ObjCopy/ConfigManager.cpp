@@ -18,7 +18,7 @@ Expected<const COFFConfig &> ConfigManager::getCOFFConfig() const {
       !Common.SymbolsPrefixRemove.empty() || !Common.SymbolsToSkip.empty() ||
       !Common.AllocSectionsPrefix.empty() || !Common.KeepSection.empty() ||
       !Common.SymbolsToGlobalize.empty() || !Common.SymbolsToKeep.empty() ||
-      !Common.SymbolsToLocalize.empty() || !Common.SymbolsToWeaken.empty() ||
+      !Common.SymbolsToLocalize.empty() ||
       !Common.SymbolsToKeepGlobal.empty() || !Common.SectionsToRename.empty() ||
       !Common.SetSectionAlignment.empty() || !Common.SetSectionType.empty() ||
       Common.ExtractDWO || Common.PreserveDates || Common.StripDWO ||
