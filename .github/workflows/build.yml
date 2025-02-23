@@ -17,6 +17,8 @@ jobs:
         run:  cmake --build build --target LLVMCore
       - name: Build llvm code gen
         run:  cmake --build build --target LLVMCodeGen
+      - name: Build llvm x86 code gen
+        run:  cmake --build build --target LLVMX86CodeGen
       - name: Build clang
         run:  cmake --build build --target clang
       - name: Build llvm-objcopy
