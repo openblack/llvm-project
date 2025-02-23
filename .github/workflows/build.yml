@@ -13,6 +13,8 @@ jobs:
         uses: llvm/actions/install-ninja@main
       - name: Configure llvm cmake
         run:  cmake -Bbuild -Sllvm -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_ENABLE_PROJECTS="lld;clang"
+      - name: Build llvm core
+        run:  cmake --build build --target LLVMCore
       - name: Build clang
         run:  cmake --build build --target clang
       - name: Build llvm-objcopy
