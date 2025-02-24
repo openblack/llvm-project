@@ -319,11 +319,9 @@ void COFFWriter::writeSections() {
     ArrayRef<uint8_t> Contents = S.getContents();
     std::copy(Contents.begin(), Contents.end(), Ptr);
 
-    // For executable sections, pad the remainder of the raw data size with
-    // 0xcc, which is int3 on x86.
     if ((S.Header.Characteristics & IMAGE_SCN_CNT_CODE) &&
         S.Header.SizeOfRawData > Contents.size())
-      memset(Ptr + Contents.size(), 0xcc,
+      memset(Ptr + Contents.size(), 0x00,
              S.Header.SizeOfRawData - Contents.size());
 
     Ptr += S.Header.SizeOfRawData;
