@@ -2391,6 +2391,8 @@ void CodeGenModule::ConstructAttributeList(StringRef Name,
       FuncAttrs.addAttribute(llvm::Attribute::Convergent);
     if (TargetDecl->hasAttr<MOV32rr_REVAttr>())
       FuncAttrs.addAttribute(llvm::Attribute::MOV32rr_REV);
+    if (TargetDecl->hasAttr<XOR32rr_REVAttr>())
+      FuncAttrs.addAttribute(llvm::Attribute::XOR32rr_REV);
 
     if (const FunctionDecl *Fn = dyn_cast<FunctionDecl>(TargetDecl)) {
       AddAttributesFromFunctionProtoType(

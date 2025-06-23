@@ -788,6 +788,7 @@ enum AttributeKindCodes {
   ATTR_KIND_NO_EXT = 99,
   ATTR_KIND_NO_DIVERGENCE_SOURCE = 100,
   ATTR_MOV32rr_REV = 101,
+  ATTR_XOR32rr_REV = 102,
 };
 
 enum ComdatSelectionKindCodes {

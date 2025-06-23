@@ -951,6 +951,7 @@ Function *CodeExtractor::constructFunctionDeclaration(
       case Attribute::NoProfile:
       case Attribute::SkipProfile:
       case Attribute::MOV32rr_REV:
+      case Attribute::XOR32rr_REV:
         break;
       // These attributes cannot be applied to functions.
       case Attribute::Alignment:

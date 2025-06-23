@@ -5973,9 +5973,11 @@ static bool expandMOV32r1(MachineInstrBuilder &MIB, const TargetInstrInfo &TII,
   MachineBasicBlock &MBB = *MIB->getParent();
   const DebugLoc &DL = MIB->getDebugLoc();
   Register Reg = MIB.getReg(0);
+  MachineFunction &MF = *MBB.getParent();
+  const Function &F = MF.getFunction();
 
   // Insert the XOR.
-  BuildMI(MBB, MIB.getInstr(), DL, TII.get(X86::XOR32rr), Reg)
+  BuildMI(MBB, MIB.getInstr(), DL, TII.get((F.hasFnAttribute(Attribute::AttrKind::XOR32rr_REV) ? X86::XOR32rr_REV : X86::XOR32rr)), Reg)
       .addReg(Reg, RegState::Undef)
       .addReg(Reg, RegState::Undef);
 
@@ -6075,10 +6077,11 @@ static void expandLoadStackGuard(MachineInstrBuilder &MIB,
 static bool expandXorFP(MachineInstrBuilder &MIB, const TargetInstrInfo &TII) {
   MachineBasicBlock &MBB = *MIB->getParent();
   MachineFunction &MF = *MBB.getParent();
+  const Function &F = MF.getFunction();
   const X86Subtarget &Subtarget = MF.getSubtarget<X86Subtarget>();
   const X86RegisterInfo *TRI = Subtarget.getRegisterInfo();
   unsigned XorOp =
-      MIB->getOpcode() == X86::XOR64_FP ? X86::XOR64rr : X86::XOR32rr;
+      MIB->getOpcode() == X86::XOR64_FP ? X86::XOR64rr : (F.hasFnAttribute(Attribute::AttrKind::XOR32rr_REV) ? X86::XOR32rr_REV : X86::XOR32rr);
   MIB->setDesc(TII.get(XorOp));
   MIB.addReg(TRI->getFrameRegister(MF), RegState::Undef);
   return true;
@@ -6144,10 +6147,14 @@ static bool expandSHXDROT(MachineInstrBuilder &MIB, const MCInstrDesc &Desc) {
 
 bool X86InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   bool HasAVX = Subtarget.hasAVX();
-  MachineInstrBuilder MIB(*MI.getParent()->getParent(), MI);
+
+  MachineBasicBlock &MBB = *MI.getParent();
+  MachineFunction &MF = *MBB.getParent();
+  MachineInstrBuilder MIB(MF, MI);
+  const Function &F = MF.getFunction();
   switch (MI.getOpcode()) {
   case X86::MOV32r0:
-    return Expand2AddrUndef(MIB, get(X86::XOR32rr));
+    return Expand2AddrUndef(MIB, get(F.hasFnAttribute(Attribute::AttrKind::XOR32rr_REV) ? X86::XOR32rr_REV : X86::XOR32rr));
   case X86::MOV32r1:
     return expandMOV32r1(MIB, *this, /*MinusOne=*/false);
   case X86::MOV32r_1:

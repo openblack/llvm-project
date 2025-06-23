@@ -4946,3 +4946,10 @@ def MOV32rr_REV: InheritableAttr {
   let Documentation = [Undocumented];
   let SimpleHandler = 1;
 }
+
+def XOR32rr_REV: InheritableAttr {
+  let Spellings = [GNU<"XOR32rr_REV">];
+  let Subjects = SubjectList<[Function]>;
+  let Documentation = [Undocumented];
+  let SimpleHandler = 1;
+}
