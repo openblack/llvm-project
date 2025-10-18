@@ -217,6 +217,7 @@ public:
 private:
   void createSections();
   void createMiscChunks();
+  void createDebugChunks();
   void createImportTables();
   void appendImportThunks();
   void locateImportTables();
@@ -771,6 +772,8 @@ void Writer::run() {
     createMiscChunks();
     createExportTable();
     mergeSections();
+    // Debug chunks added after .rdata is merged to prevent displacing subsectiions of rdata
+    createDebugChunks();
     sortECChunks();
     appendECImportTables();
     createDynamicRelocs();
@@ -1120,6 +1123,8 @@ void Writer::createSections() {
     StringRef name = getOutputSectionName(pSec->name);
     uint32_t outChars = pSec->characteristics;
 
+    Log(ctx) << "Processing section " << pSec->name << " -> " << name;
+
     if (name == ".CRT") {
       // In link.exe, there is a special case for the I386 target where .CRT
       // sections are treated as if they have output characteristics DATA | R if
@@ -1138,9 +1143,18 @@ void Writer::createSections() {
         (pSec->name == ".idata$5" || pSec->name == ".idata$9"))
       continue;
 
+    Log(ctx) << "=== Processing input partial section: " << pSec->name << ", chars=" << llvm::format_hex(outChars, 8);
     OutputSection *sec = createSection(name, outChars);
     for (Chunk *c : pSec->chunks)
+    {
+      Log(ctx)  << "  chunk " << c->getDebugName()
+                << ", chars=" << llvm::format_hex(c->getOutputCharacteristics(), 8)
+                << ", rva=" << llvm::format_hex(c->getRVA(), 8)
+                << ", size=" << llvm::format_hex(c->getSize(), 8)
+                // << ", live=" << (c->isLive() ? "yes" : "no")
+                ;
       sec->addChunk(c);
+    }
 
     sec->addContributingPartialSection(pSec);
   }
@@ -1188,6 +1202,27 @@ void Writer::createMiscChunks() {
       rdataSec->addChunk(c);
   }
 
+  // Create SEH table. x86-only.
+  if (config->safeSEH)
+    createSEHTable();
+
+  // Create /guard:cf tables if requested.
+  createGuardCFTables();
+
+  if (isArm64EC(config->machine))
+    createECChunks();
+
+  if (config->autoImport)
+    createRuntimePseudoRelocs();
+
+  if (config->mingw)
+    insertCtorDtorSymbols();
+}
+
+void Writer::createDebugChunks() {
+  llvm::TimeTraceScope timeScope("Debug chunks");
+  Configuration *config = &ctx.config;
+
   // Create Debug Information Chunks
   debugInfoSec = config->mingw ? buildidSec : rdataSec;
   if (config->buildIDHash != BuildIDHash::None || config->debug ||
@@ -1221,22 +1256,6 @@ void Writer::createMiscChunks() {
     r.second->setAlignment(4);
     debugInfoSec->addChunk(r.second);
   }
-
-  // Create SEH table. x86-only.
-  if (config->safeSEH)
-    createSEHTable();
-
-  // Create /guard:cf tables if requested.
-  createGuardCFTables();
-
-  if (isArm64EC(config->machine))
-    createECChunks();
-
-  if (config->autoImport)
-    createRuntimePseudoRelocs();
-
-  if (config->mingw)
-    insertCtorDtorSymbols();
 }
 
 // Create .idata section for the DLL-imported symbol table.
