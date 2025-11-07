@@ -1132,8 +1132,8 @@ void CodeViewDebug::emitDebugInfoForFunction(const Function *GV,
     ProcSymFlags ProcFlags = ProcSymFlags::HasOptimizedDebugInfo;
     if (FI.HasFramePointer)
       ProcFlags |= ProcSymFlags::HasFP;
-    if (GV->hasFnAttribute(Attribute::NoReturn))
-      ProcFlags |= ProcSymFlags::IsNoReturn;
+    // if (GV->hasFnAttribute(Attribute::NoReturn))
+    //   ProcFlags |= ProcSymFlags::IsNoReturn;
     if (GV->hasFnAttribute(Attribute::NoInline))
       ProcFlags |= ProcSymFlags::IsNoInline;
     OS.emitInt8(static_cast<uint8_t>(ProcFlags));
