@@ -9,12 +9,12 @@ jobs:
     runs-on: ${{ matrix.os }}-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: llvm/actions/setup-windows@main
+      - uses: llvm/actions/setup-windows@a1ea791b03c8e61f53a0e66f2f73db283aa0f01e
         if: ${{ runner.os == 'Windows' }}
       - name: Install Ninja
-        uses: llvm/actions/install-ninja@main
+        uses: llvm/actions/install-ninja@a1ea791b03c8e61f53a0e66f2f73db283aa0f01e
       - name: Configure llvm cmake
-        uses: llvm/actions/configure-llvm-project@main
+        uses: llvm/actions/configure-llvm-project@a1ea791b03c8e61f53a0e66f2f73db283aa0f01e
         with:
           cmake_args: -Bbuild -Sllvm -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_ENABLE_PROJECTS="lld;clang"
       - name: Build llvm core
