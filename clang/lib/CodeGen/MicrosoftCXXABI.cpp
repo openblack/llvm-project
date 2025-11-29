@@ -30,6 +30,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/Support/Alignment.h"
 
 using namespace clang;
 using namespace CodeGen;
@@ -3690,8 +3691,8 @@ struct MSRTTIBuilder {
 
   llvm::GlobalVariable *getBaseClassDescriptor(const MSRTTIClass &Classes);
   llvm::GlobalVariable *
-  getBaseClassArray(SmallVectorImpl<MSRTTIClass> &Classes);
-  llvm::GlobalVariable *getClassHierarchyDescriptor();
+  getBaseClassArray(SmallVectorImpl<MSRTTIClass> &Classes, llvm::GlobalVariable* CHD);
+  llvm::GlobalVariable *getClassHierarchyDescriptor(llvm::GlobalVariable* COL);
   llvm::GlobalVariable *getCompleteObjectLocator(const VPtrInfo &Info);
 
   CodeGenModule &CGM;
@@ -3737,7 +3738,7 @@ detectAmbiguousBases(SmallVectorImpl<MSRTTIClass> &Classes) {
       Class.Flags |= MSRTTIClass::IsAmbiguous;
 }
 
-llvm::GlobalVariable *MSRTTIBuilder::getClassHierarchyDescriptor() {
+llvm::GlobalVariable *MSRTTIBuilder::getClassHierarchyDescriptor(llvm::GlobalVariable* COL) {
   SmallString<256> MangledName;
   {
     llvm::raw_svector_ostream Out(MangledName);
@@ -3773,11 +3774,12 @@ llvm::GlobalVariable *MSRTTIBuilder::getClassHierarchyDescriptor() {
   auto Type = ABI.getClassHierarchyDescriptorType();
   auto CHD = new llvm::GlobalVariable(Module, Type, /*isConstant=*/true, Linkage,
                                       /*Initializer=*/nullptr,
-                                      MangledName);
+                                      MangledName, COL);
+  CHD->setSection(".rdata$r");
   if (CHD->isWeakForLinker())
     CHD->setComdat(CGM.getModule().getOrInsertComdat(CHD->getName()));
 
-  auto *Bases = getBaseClassArray(Classes);
+  auto *Bases = getBaseClassArray(Classes, CHD);
 
   // Initialize the base class ClassHierarchyDescriptor.
   llvm::Constant *Fields[] = {
@@ -3793,7 +3795,7 @@ llvm::GlobalVariable *MSRTTIBuilder::getClassHierarchyDescriptor() {
 }
 
 llvm::GlobalVariable *
-MSRTTIBuilder::getBaseClassArray(SmallVectorImpl<MSRTTIClass> &Classes) {
+MSRTTIBuilder::getBaseClassArray(SmallVectorImpl<MSRTTIClass> &Classes, llvm::GlobalVariable* CHD) {
   SmallString<256> MangledName;
   {
     llvm::raw_svector_ostream Out(MangledName);
@@ -3810,7 +3812,8 @@ MSRTTIBuilder::getBaseClassArray(SmallVectorImpl<MSRTTIClass> &Classes) {
   auto *BCA =
       new llvm::GlobalVariable(Module, ArrType,
                                /*isConstant=*/true, Linkage,
-                               /*Initializer=*/nullptr, MangledName);
+                               /*Initializer=*/nullptr, MangledName, CHD);
+  BCA->setSection(".rdata$r");
   if (BCA->isWeakForLinker())
     BCA->setComdat(CGM.getModule().getOrInsertComdat(BCA->getName()));
 
@@ -3821,6 +3824,7 @@ MSRTTIBuilder::getBaseClassArray(SmallVectorImpl<MSRTTIClass> &Classes) {
         ABI.getImageRelativeConstant(getBaseClassDescriptor(Class)));
   BaseClassArrayData.push_back(llvm::Constant::getNullValue(PtrType));
   BCA->setInitializer(llvm::ConstantArray::get(ArrType, BaseClassArrayData));
+  BCA->setAlignment(llvm::Align(8));
   return BCA;
 }
 
@@ -3853,6 +3857,7 @@ MSRTTIBuilder::getBaseClassDescriptor(const MSRTTIClass &Class) {
   auto BCD =
       new llvm::GlobalVariable(Module, Type, /*isConstant=*/true, Linkage,
                                /*Initializer=*/nullptr, MangledName);
+  BCD->setSection(".rdata$r");
   if (BCD->isWeakForLinker())
     BCD->setComdat(CGM.getModule().getOrInsertComdat(BCD->getName()));
 
@@ -3866,7 +3871,7 @@ MSRTTIBuilder::getBaseClassDescriptor(const MSRTTIClass &Class) {
       llvm::ConstantInt::get(CGM.IntTy, OffsetInVBTable),
       llvm::ConstantInt::get(CGM.IntTy, Class.Flags),
       ABI.getImageRelativeConstant(
-          MSRTTIBuilder(ABI, Class.RD).getClassHierarchyDescriptor()),
+          MSRTTIBuilder(ABI, Class.RD).getClassHierarchyDescriptor(nullptr)),
   };
   BCD->setInitializer(llvm::ConstantStruct::get(Type, Fields));
   return BCD;
@@ -3899,6 +3904,7 @@ MSRTTIBuilder::getCompleteObjectLocator(const VPtrInfo &Info) {
   llvm::StructType *Type = ABI.getCompleteObjectLocatorType();
   auto COL = new llvm::GlobalVariable(Module, Type, /*isConstant=*/true, Linkage,
     /*Initializer=*/nullptr, MangledName);
+  COL->setSection(".rdata$r");
 
   // Initialize the CompleteObjectLocator.
   llvm::Constant *Fields[] = {
@@ -3907,7 +3913,7 @@ MSRTTIBuilder::getCompleteObjectLocator(const VPtrInfo &Info) {
       llvm::ConstantInt::get(CGM.IntTy, VFPtrOffset),
       ABI.getImageRelativeConstant(
           CGM.GetAddrOfRTTIDescriptor(Context.getTypeDeclType(RD))),
-      ABI.getImageRelativeConstant(getClassHierarchyDescriptor()),
+      ABI.getImageRelativeConstant(getClassHierarchyDescriptor(COL)),
       ABI.getImageRelativeConstant(COL),
   };
   llvm::ArrayRef<llvm::Constant *> FieldsRef(Fields);
