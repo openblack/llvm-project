@@ -145,7 +145,7 @@ class LVCodeViewReader final : public LVBinaryReader {
                                const llvm::pdb::SymbolGroup *SG = nullptr);
 
   Error loadPrecompiledObject(PrecompRecord &Precomp, CVTypeArray &CVTypesObj);
-  Error loadTypeServer(TypeServer2Record &TS);
+  Error loadTypeServer(TypeServerStRecord &TS);
   Error traverseTypes(llvm::pdb::PDBFile &Pdb, LazyRandomTypeCollection &Types,
                       LazyRandomTypeCollection &Ids);
 

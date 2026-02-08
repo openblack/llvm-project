@@ -364,7 +364,7 @@ Error LVCodeViewReader::initializeFileAndStringTables(
   return Error::success();
 }
 
-Error LVCodeViewReader::loadTypeServer(TypeServer2Record &TS) {
+Error LVCodeViewReader::loadTypeServer(TypeServerStRecord &TS) {
   LLVM_DEBUG({
     W.printString("Guid", formatv("{0}", TS.getGuid()).str());
     W.printNumber("Age", TS.getAge());
@@ -548,9 +548,9 @@ Error LVCodeViewReader::traverseTypeSection(StringRef SectionName,
   CVTypeArray::Iterator FirstType = CVTypes.begin();
 
   // The object was compiled with /Zi. It uses types from a type server PDB.
-  if (FirstType->kind() == LF_TYPESERVER2) {
-    TypeServer2Record TS = cantFail(
-        TypeDeserializer::deserializeAs<TypeServer2Record>(FirstType->data()));
+  if (FirstType->kind() == LF_TYPESERVER_ST) {
+    TypeServerStRecord TS = cantFail(
+        TypeDeserializer::deserializeAs<TypeServerStRecord>(FirstType->data()));
     return loadTypeServer(TS);
   }
 

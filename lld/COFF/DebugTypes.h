@@ -167,7 +167,7 @@ TpiSource *makeTpiSource(COFFLinkerContext &ctx, ObjFile *f);
 TpiSource *makeTypeServerSource(COFFLinkerContext &ctx,
                                 PDBInputFile *pdbInputFile);
 TpiSource *makeUseTypeServerSource(COFFLinkerContext &ctx, ObjFile *file,
-                                   llvm::codeview::TypeServer2Record ts);
+                                   llvm::codeview::TypeServerStRecord ts);
 TpiSource *makePrecompSource(COFFLinkerContext &ctx, ObjFile *file);
 TpiSource *makeUsePrecompSource(COFFLinkerContext &ctx, ObjFile *file,
                                 llvm::codeview::PrecompRecord ts);

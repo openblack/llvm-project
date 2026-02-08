@@ -16,6 +16,7 @@
 #include "llvm/DebugInfo/PDB/Native/InjectedSourceStream.h"
 #include "llvm/DebugInfo/PDB/Native/PDBStringTable.h"
 #include "llvm/DebugInfo/PDB/Native/PublicsStream.h"
+#include "llvm/DebugInfo/PDB/Native/RawConstants.h"
 #include "llvm/DebugInfo/PDB/Native/RawError.h"
 #include "llvm/DebugInfo/PDB/Native/SymbolStream.h"
 #include "llvm/DebugInfo/PDB/Native/TpiStream.h"
@@ -72,17 +73,24 @@ uint32_t PDBFile::getBlockMapIndex() const {
 uint32_t PDBFile::getUnknown1() const { return ContainerLayout.SB->Unknown1; }
 
 uint32_t PDBFile::getNumDirectoryBlocks() const {
-  return msf::bytesToBlocks(ContainerLayout.SB->NumDirectoryBytes,
-                            ContainerLayout.SB->BlockSize);
+  if (UseBigMSF)
+    return msf::bytesToBlocks(ContainerLayout.SB->NumDirectoryBytes,
+                              ContainerLayout.SB->BlockSize);
+  return msf::bytesToBlocks(LesserContainerLayout.LB->NumDirectoryBytes,
+                            LesserContainerLayout.LB->BlockSize);
 }
 
 uint64_t PDBFile::getBlockMapOffset() const {
-  return (uint64_t)ContainerLayout.SB->BlockMapAddr *
-         ContainerLayout.SB->BlockSize;
+  if (UseBigMSF)
+    return (uint64_t)ContainerLayout.SB->BlockMapAddr *
+          ContainerLayout.SB->BlockSize;
+  return sizeof(*LesserContainerLayout.LB);
 }
 
 uint32_t PDBFile::getNumStreams() const {
-  return ContainerLayout.StreamSizes.size();
+  if (UseBigMSF)
+    return ContainerLayout.StreamSizes.size();
+  return LesserContainerLayout.StreamSizes.size();
 }
 
 uint32_t PDBFile::getMaxStreamSize() const {
@@ -90,7 +98,9 @@ uint32_t PDBFile::getMaxStreamSize() const {
 }
 
 uint32_t PDBFile::getStreamByteSize(uint32_t StreamIndex) const {
-  return ContainerLayout.StreamSizes[StreamIndex];
+  if (UseBigMSF)
+    return ContainerLayout.StreamSizes[StreamIndex];
+  return LesserContainerLayout.StreamSizes[StreamIndex][0];
 }
 
 ArrayRef<support::ulittle32_t>
@@ -119,6 +129,21 @@ Error PDBFile::setBlockData(uint32_t BlockIndex, uint32_t Offset,
 Error PDBFile::parseFileHeaders() {
   BinaryStreamReader Reader(*Buffer);
 
+
+  // TODO: pdb file can be MSF instead of BIG MSF
+
+  auto Offset = Reader.getOffset();
+
+  // Initialize LB.
+  const msf::LesserBlock *LB = nullptr;
+  if (auto EC = Reader.readObject(LB)) {
+    consumeError(std::move(EC));
+    return make_error<RawError>(raw_error_code::corrupt_file,
+                                "MSF lesserblock is missing");
+  }
+
+  Reader.setOffset(Offset);
+
   // Initialize SB.
   const msf::SuperBlock *SB = nullptr;
   if (auto EC = Reader.readObject(SB)) {
@@ -127,56 +152,164 @@ Error PDBFile::parseFileHeaders() {
                                 "MSF superblock is missing");
   }
 
-  if (auto EC = msf::validateSuperBlock(*SB))
-    return EC;
-
-  if (Buffer->getLength() % SB->BlockSize != 0)
-    return make_error<RawError>(raw_error_code::corrupt_file,
-                                "File size is not a multiple of block size");
-  ContainerLayout.SB = SB;
-
-  // Initialize Free Page Map.
-  ContainerLayout.FreePageMap.resize(SB->NumBlocks);
-  // The Fpm exists either at block 1 or block 2 of the MSF.  However, this
-  // allows for a maximum of getBlockSize() * 8 blocks bits in the Fpm, and
-  // thusly an equal number of total blocks in the file.  For a block size
-  // of 4KiB (very common), this would yield 32KiB total blocks in file, for a
-  // maximum file size of 32KiB * 4KiB = 128MiB.  Obviously this won't do, so
-  // the Fpm is split across the file at `getBlockSize()` intervals.  As a
-  // result, every block whose index is of the form |{1,2} + getBlockSize() * k|
-  // for any non-negative integer k is an Fpm block.  In theory, we only really
-  // need to reserve blocks of the form |{1,2} + getBlockSize() * 8 * k|, but
-  // current versions of the MSF format already expect the Fpm to be arranged
-  // at getBlockSize() intervals, so we have to be compatible.
-  // See the function fpmPn() for more information:
-  // https://github.com/Microsoft/microsoft-pdb/blob/master/PDB/msf/msf.cpp#L489
-  auto FpmStream =
-      MappedBlockStream::createFpmStream(ContainerLayout, *Buffer, Allocator);
-  BinaryStreamReader FpmReader(*FpmStream);
-  ArrayRef<uint8_t> FpmBytes;
-  if (auto EC = FpmReader.readBytes(FpmBytes, FpmReader.bytesRemaining()))
-    return EC;
-  uint32_t BlocksRemaining = getBlockCount();
-  uint32_t BI = 0;
-  for (auto Byte : FpmBytes) {
-    uint32_t BlocksThisByte = std::min(BlocksRemaining, 8U);
-    for (uint32_t I = 0; I < BlocksThisByte; ++I) {
-      if (Byte & (1 << I))
-        ContainerLayout.FreePageMap[BI] = true;
-      --BlocksRemaining;
-      ++BI;
-    }
+  if (auto EC = msf::validateLesserBlock(*LB)) {
+    UseBigMSF = true;
+    Reader.setOffset(Offset + sizeof(*SB));
+    if (auto EC = msf::validateSuperBlock(*SB))
+      return EC;
+  }
+  else {
+    UseBigMSF = false;
+    Reader.setOffset(Offset + sizeof(*LB));
   }
 
-  Reader.setOffset(getBlockMapOffset());
-  if (auto EC = Reader.readArray(ContainerLayout.DirectoryBlocks,
-                                 getNumDirectoryBlocks()))
-    return EC;
+  if (UseBigMSF) {
+    if (Buffer->getLength() % SB->BlockSize != 0)
+      return make_error<RawError>(raw_error_code::corrupt_file,
+                                  "File size is not a multiple of block size");
+    ContainerLayout.SB = SB;
+
+    // Initialize Free Page Map.
+    ContainerLayout.FreePageMap.resize(SB->NumBlocks);
+    // The Fpm exists either at block 1 or block 2 of the MSF.  However, this
+    // allows for a maximum of getBlockSize() * 8 blocks bits in the Fpm, and
+    // thusly an equal number of total blocks in the file.  For a block size
+    // of 4KiB (very common), this would yield 32KiB total blocks in file, for a
+    // maximum file size of 32KiB * 4KiB = 128MiB.  Obviously this won't do, so
+    // the Fpm is split across the file at `getBlockSize()` intervals.  As a
+    // result, every block whose index is of the form |{1,2} + getBlockSize() * k|
+    // for any non-negative integer k is an Fpm block.  In theory, we only really
+    // need to reserve blocks of the form |{1,2} + getBlockSize() * 8 * k|, but
+    // current versions of the MSF format already expect the Fpm to be arranged
+    // at getBlockSize() intervals, so we have to be compatible.
+    // See the function fpmPn() for more information:
+    // https://github.com/Microsoft/microsoft-pdb/blob/master/PDB/msf/msf.cpp#L489
+    auto FpmStream =
+        MappedBlockStream::createFpmStream(ContainerLayout, *Buffer, Allocator);
+    BinaryStreamReader FpmReader(*FpmStream);
+    ArrayRef<uint8_t> FpmBytes;
+    if (auto EC = FpmReader.readBytes(FpmBytes, FpmReader.bytesRemaining()))
+      return EC;
+    uint32_t BlocksRemaining = getBlockCount();
+    uint32_t BI = 0;
+    for (auto Byte : FpmBytes) {
+      uint32_t BlocksThisByte = std::min(BlocksRemaining, 8U);
+      for (uint32_t I = 0; I < BlocksThisByte; ++I) {
+        if (Byte & (1 << I))
+          ContainerLayout.FreePageMap[BI] = true;
+        --BlocksRemaining;
+        ++BI;
+      }
+    }
+    Reader.setOffset(getBlockMapOffset());
+    if (auto EC = Reader.readArray(ContainerLayout.DirectoryBlocks,
+                                  getNumDirectoryBlocks()))
+      return EC;
+  }
+  else {
+    if (Buffer->getLength() % LB->BlockSize != 0)
+      return make_error<RawError>(raw_error_code::corrupt_file,
+                                  "File size is not a multiple of block size");
+    LesserContainerLayout.LB = LB;
+
+    // Initialize Free Page Map.
+    LesserContainerLayout.FreePageMap.resize(LB->NumBlocks);
+    // The Fpm exists either at block 1 or block 2 of the MSF.  However, this
+    // allows for a maximum of getBlockSize() * 8 blocks bits in the Fpm, and
+    // thusly an equal number of total blocks in the file.  For a block size
+    // of 4KiB (very common), this would yield 32KiB total blocks in file, for a
+    // maximum file size of 32KiB * 4KiB = 128MiB.  Obviously this won't do, so
+    // the Fpm is split across the file at `getBlockSize()` intervals.  As a
+    // result, every block whose index is of the form |{1,2} + getBlockSize() * k|
+    // for any non-negative integer k is an Fpm block.  In theory, we only really
+    // need to reserve blocks of the form |{1,2} + getBlockSize() * 8 * k|, but
+    // current versions of the MSF format already expect the Fpm to be arranged
+    // at getBlockSize() intervals, so we have to be compatible.
+    // See the function fpmPn() for more information:
+    // https://github.com/Microsoft/microsoft-pdb/blob/master/PDB/msf/msf.cpp#L489
+    auto FpmStream =
+        MappedBlockStream::createFpmStream(LesserContainerLayout, *Buffer, Allocator);
+    BinaryStreamReader FpmReader(*FpmStream);
+    ArrayRef<uint8_t> FpmBytes;
+    if (auto EC = FpmReader.readBytes(FpmBytes, FpmReader.bytesRemaining()))
+      return EC;
+    uint32_t BlocksRemaining = LesserContainerLayout.LB->NumBlocks;
+    uint32_t BI = 0;
+    for (auto Byte : FpmBytes) {
+      uint32_t BlocksThisByte = std::min(BlocksRemaining, 8U);
+      for (uint32_t I = 0; I < BlocksThisByte; ++I) {
+        if (Byte & (1 << I))
+          LesserContainerLayout.FreePageMap[BI] = true;
+        --BlocksRemaining;
+        ++BI;
+      }
+    }
+    Reader.setOffset(getBlockMapOffset());
+    if (auto EC = Reader.readArray(LesserContainerLayout.DirectoryBlocks,
+                                  getNumDirectoryBlocks()))
+      return EC;
+  }
 
   return Error::success();
 }
 
-Error PDBFile::parseStreamData() {
+Error PDBFile::parseLesserStreamData() {
+  assert(LesserContainerLayout.LB);
+  if (DirectoryStream)
+    return Error::success();
+
+  uint16_t NumStreams = 0;
+  uint16_t Reserved = 0;
+
+  // Normally you can't use a MappedBlockStream without having fully parsed the
+  // PDB file, because it accesses the directory and various other things, which
+  // is exactly what we are attempting to parse.  By specifying a custom
+  // subclass of IPDBStreamData which only accesses the fields that have already
+  // been parsed, we can avoid this and reuse MappedBlockStream.
+  auto DS = MappedBlockStream::createDirectoryStream(LesserContainerLayout, *Buffer,
+                                                     Allocator);
+  BinaryStreamReader Reader(*DS);
+  if (auto EC = Reader.readInteger(NumStreams))
+    return EC;
+  if (auto EC = Reader.readInteger(Reserved))
+    return EC;
+
+  if (auto EC = Reader.readArray(LesserContainerLayout.StreamSizes, NumStreams))
+    return EC;
+  for (uint16_t I = 0; I < NumStreams; ++I) {
+    uint32_t StreamSize = getStreamByteSize(I);
+    // FIXME: What does StreamSize ~0U mean?
+    uint64_t NumExpectedStreamBlocks =
+        StreamSize == UINT16_MAX
+            ? 0
+            : msf::bytesToBlocks(StreamSize, LesserContainerLayout.LB->BlockSize);
+
+    // For convenience, we store the block array contiguously.  This is because
+    // if someone calls setStreamMap(), it is more convenient to be able to call
+    // it with an ArrayRef instead of setting up a StreamRef.  Since the
+    // DirectoryStream is cached in the class and thus lives for the life of the
+    // class, we can be guaranteed that readArray() will return a stable
+    // reference, even if it has to allocate from its internal pool.
+    ArrayRef<support::ulittle16_t> Blocks;
+    if (auto EC = Reader.readArray(Blocks, NumExpectedStreamBlocks))
+      return EC;
+    for (uint16_t Block : Blocks) {
+      uint64_t BlockEndOffset =
+          (uint64_t)(Block + 1) * LesserContainerLayout.LB->BlockSize;
+      if (BlockEndOffset > getFileSize())
+        return make_error<RawError>(raw_error_code::corrupt_file,
+                                    "Stream block map is corrupt.");
+    }
+    LesserContainerLayout.StreamMap.push_back(Blocks);
+  }
+
+  // We should have read exactly SB->NumDirectoryBytes bytes.
+  assert(Reader.bytesRemaining() == 0);
+  DirectoryStream = std::move(DS);
+  return Error::success();
+}
+
+Error PDBFile::parseBiggerStreamData() {
   assert(ContainerLayout.SB);
   if (DirectoryStream)
     return Error::success();
@@ -229,6 +362,13 @@ Error PDBFile::parseStreamData() {
   return Error::success();
 }
 
+Error PDBFile::parseStreamData() {
+  assert(LesserContainerLayout.LB || ContainerLayout.SB);
+  if (LesserContainerLayout.LB)
+    return parseLesserStreamData();
+  return parseBiggerStreamData();
+}
+
 ArrayRef<support::ulittle32_t> PDBFile::getDirectoryBlockArray() const {
   return ContainerLayout.DirectoryBlocks;
 }
@@ -237,7 +377,10 @@ std::unique_ptr<MappedBlockStream>
 PDBFile::createIndexedStream(uint16_t SN) const {
   if (SN == kInvalidStreamIndex)
     return nullptr;
-  return MappedBlockStream::createIndexedStream(ContainerLayout, *Buffer, SN,
+  if (UseBigMSF)
+    return MappedBlockStream::createIndexedStream(ContainerLayout, *Buffer, SN,
+                                                  Allocator);
+  return MappedBlockStream::createIndexedStream(LesserContainerLayout, *Buffer, SN,
                                                 Allocator);
 }
 

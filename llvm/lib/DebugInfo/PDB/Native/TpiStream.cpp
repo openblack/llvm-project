@@ -48,7 +48,7 @@ Error TpiStream::reload() {
     return make_error<RawError>(raw_error_code::corrupt_file,
                                 "TPI Stream does not contain a header.");
 
-  if (Header->Version != PdbTpiV80)
+  if (Header->Version != PdbTpiV50 && Header->Version != PdbTpiV80)
     return make_error<RawError>(raw_error_code::corrupt_file,
                                 "Unsupported TPI Version.");
 
@@ -56,7 +56,10 @@ Error TpiStream::reload() {
     return make_error<RawError>(raw_error_code::corrupt_file,
                                 "Corrupt TPI Header size.");
 
-  if (Header->HashKeySize != sizeof(ulittle32_t))
+  if (Header->Version == PdbTpiV50 && Header->HashKeySize != sizeof(ulittle16_t))
+    return make_error<RawError>(raw_error_code::corrupt_file,
+                                "TPI Stream expected 2 byte hash key size.");
+  if (Header->Version == PdbTpiV80 && Header->HashKeySize != sizeof(ulittle32_t))
     return make_error<RawError>(raw_error_code::corrupt_file,
                                 "TPI Stream expected 4 byte hash key size.");
 
@@ -88,13 +91,19 @@ Error TpiStream::reload() {
     // There should be a hash value for every type record, or no hashes at all.
     uint32_t NumHashValues =
         Header->HashValueBuffer.Length / sizeof(ulittle32_t);
+    if (Header->Version == PdbTpiV50)
+      NumHashValues = Header->HashValueBuffer.Length / sizeof(ulittle16_t);
     if (NumHashValues != getNumTypeRecords() && NumHashValues != 0)
       return make_error<RawError>(
           raw_error_code::corrupt_file,
           "TPI hash count does not match with the number of type records.");
     HSR.setOffset(Header->HashValueBuffer.Off);
-    if (auto EC = HSR.readArray(HashValues, NumHashValues))
-      return EC;
+    if (Header->Version == PdbTpiV50)
+      if (auto EC = HSR.readArray(HashValuesV50, NumHashValues))
+        return EC;
+    if (Header->Version == PdbTpiV80)
+      if (auto EC = HSR.readArray(HashValuesV80, NumHashValues))
+        return EC;
 
     HSR.setOffset(Header->IndexOffsetBuffer.Off);
     uint32_t NumTypeIndexOffsets =
@@ -143,7 +152,9 @@ uint32_t TpiStream::getHashKeySize() const { return Header->HashKeySize; }
 void TpiStream::buildHashMap() {
   if (!HashMap.empty())
     return;
-  if (HashValues.empty())
+  if (Header->Version == PdbTpiV50 && HashValuesV50.empty())
+    return;
+  if (Header->Version == PdbTpiV80 && HashValuesV80.empty())
     return;
 
   HashMap.resize(Header->NumHashBuckets);
@@ -151,7 +162,7 @@ void TpiStream::buildHashMap() {
   TypeIndex TIB{Header->TypeIndexBegin};
   TypeIndex TIE{Header->TypeIndexEnd};
   while (TIB < TIE) {
-    uint32_t HV = HashValues[TIB.toArrayIndex()];
+    uint32_t HV = Header->Version == PdbTpiV50 ? HashValuesV50[TIB.toArrayIndex()] : HashValuesV80[TIB.toArrayIndex()];
     HashMap[HV].push_back(TIB++);
   }
 }
@@ -226,8 +237,12 @@ BinarySubstreamRef TpiStream::getTypeRecordsSubstream() const {
   return TypeRecordsSubstream;
 }
 
-FixedStreamArray<support::ulittle32_t> TpiStream::getHashValues() const {
-  return HashValues;
+FixedStreamArray<support::ulittle16_t> TpiStream::getHashValuesV50() const {
+  return HashValuesV50;
+}
+
+FixedStreamArray<support::ulittle32_t> TpiStream::getHashValuesV80() const {
+  return HashValuesV80;
 }
 
 FixedStreamArray<TypeIndexOffset> TpiStream::getTypeIndexOffsets() const {

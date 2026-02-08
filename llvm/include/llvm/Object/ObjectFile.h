@@ -231,11 +231,11 @@ class ObjectFile : public SymbolicFile {
 
 protected:
   ObjectFile(unsigned int Type, MemoryBufferRef Source);
-
+public:
   const uint8_t *base() const {
     return reinterpret_cast<const uint8_t *>(Data.getBufferStart());
   }
-
+protected:
   // These functions are for SymbolRef to call internally. The main goal of
   // this is to allow SymbolRef::SymbolPimpl to point directly to the symbol
   // entry in the memory mapped object file. SymbolPimpl cannot contain any

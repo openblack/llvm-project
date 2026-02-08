@@ -352,8 +352,8 @@ Error TypeDumpVisitor::visitKnownRecord(CVType &CVR, FuncIdRecord &Func) {
   return Error::success();
 }
 
-Error TypeDumpVisitor::visitKnownRecord(CVType &CVR, TypeServer2Record &TS) {
-  W->printString("Guid", formatv("{0}", TS.getGuid()).str());
+Error TypeDumpVisitor::visitKnownRecord(CVType &CVR, TypeServerStRecord &TS) {
+  W->printNumber("Signature", TS.getSignature());
   W->printNumber("Age", TS.getAge());
   W->printString("Name", TS.getName());
   return Error::success();

@@ -571,22 +571,20 @@ public:
   std::vector<VFTableSlotKind> Slots;
 };
 
-// LF_TYPESERVER2
-class TypeServer2Record : public TypeRecord {
+// LF_TYPESERVER_ST
+class TypeServerStRecord : public TypeRecord {
 public:
-  TypeServer2Record() = default;
-  explicit TypeServer2Record(TypeRecordKind Kind) : TypeRecord(Kind) {}
-  TypeServer2Record(StringRef GuidStr, uint32_t Age, StringRef Name)
-      : TypeRecord(TypeRecordKind::TypeServer2), Age(Age), Name(Name) {
-    assert(GuidStr.size() == 16 && "guid isn't 16 bytes");
-    ::memcpy(Guid.Guid, GuidStr.data(), 16);
+  TypeServerStRecord() = default;
+  explicit TypeServerStRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
+  TypeServerStRecord(uint32_t Signature, uint32_t Age, StringRef Name)
+      : TypeRecord(TypeRecordKind::TypeServerSt), Signature(Signature), Age(Age), Name(Name) {
   }
 
-  const GUID &getGuid() const { return Guid; }
+  uint32_t getSignature() const { return Signature; }
   uint32_t getAge() const { return Age; }
   StringRef getName() const { return Name; }
 
-  GUID Guid = {};
+  uint32_t Signature = {};
   uint32_t Age = 0;
   StringRef Name;
 };

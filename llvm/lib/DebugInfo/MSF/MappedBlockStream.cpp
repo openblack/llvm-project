@@ -55,6 +55,21 @@ std::unique_ptr<MappedBlockStream> MappedBlockStream::createStream(
 }
 
 std::unique_ptr<MappedBlockStream> MappedBlockStream::createIndexedStream(
+    const MSFLesserLayout &Layout, BinaryStreamRef MsfData, uint32_t StreamIndex,
+    BumpPtrAllocator &Allocator) {
+  assert(StreamIndex < Layout.StreamMap.size() && "Invalid stream index");
+  MSFStreamLayout SL;
+  SL.Blocks.reserve(Layout.DirectoryBlocks.size());
+  for (const auto Block: Layout.StreamMap[StreamIndex])
+  {
+    SL.Blocks.emplace_back(Block);
+  }
+  SL.Length = Layout.StreamSizes[StreamIndex][0];
+  return std::make_unique<MappedBlockStreamImpl<MappedBlockStream>>(
+      Layout.LB->BlockSize, SL, MsfData, Allocator);
+}
+
+std::unique_ptr<MappedBlockStream> MappedBlockStream::createIndexedStream(
     const MSFLayout &Layout, BinaryStreamRef MsfData, uint32_t StreamIndex,
     BumpPtrAllocator &Allocator) {
   assert(StreamIndex < Layout.StreamMap.size() && "Invalid stream index");
@@ -66,6 +81,20 @@ std::unique_ptr<MappedBlockStream> MappedBlockStream::createIndexedStream(
 }
 
 std::unique_ptr<MappedBlockStream>
+MappedBlockStream::createDirectoryStream(const MSFLesserLayout &Layout,
+                                         BinaryStreamRef MsfData,
+                                         BumpPtrAllocator &Allocator) {
+  MSFStreamLayout SL;
+  SL.Blocks.reserve(Layout.DirectoryBlocks.size());
+  for (const auto Block: Layout.DirectoryBlocks)
+  {
+    SL.Blocks.emplace_back(Block);
+  }
+  SL.Length = Layout.LB->NumDirectoryBytes;
+  return createStream(Layout.LB->BlockSize, SL, MsfData, Allocator);
+}
+
+std::unique_ptr<MappedBlockStream>
 MappedBlockStream::createDirectoryStream(const MSFLayout &Layout,
                                          BinaryStreamRef MsfData,
                                          BumpPtrAllocator &Allocator) {
@@ -73,6 +102,14 @@ MappedBlockStream::createDirectoryStream(const MSFLayout &Layout,
   SL.Blocks = Layout.DirectoryBlocks;
   SL.Length = Layout.SB->NumDirectoryBytes;
   return createStream(Layout.SB->BlockSize, SL, MsfData, Allocator);
+}
+
+std::unique_ptr<MappedBlockStream>
+MappedBlockStream::createFpmStream(const MSFLesserLayout &Layout,
+                                   BinaryStreamRef MsfData,
+                                   BumpPtrAllocator &Allocator) {
+  MSFStreamLayout SL(getFpmStreamLayout(Layout));
+  return createStream(Layout.LB->BlockSize, SL, MsfData, Allocator);
 }
 
 std::unique_ptr<MappedBlockStream>

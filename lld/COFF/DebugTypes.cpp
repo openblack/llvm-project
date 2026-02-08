@@ -56,8 +56,8 @@ public:
     auto expectedInfo = file.getPDBInfoStream();
     if (!expectedInfo)
       return;
-    Guid = expectedInfo->getGuid();
-    auto it = ctx.typeServerSourceMappings.emplace(Guid, this);
+    Signature = expectedInfo->getSignature();
+    auto it = ctx.typeServerSourceMappings.emplace(Signature, this);
     if (!it.second) {
       // If we hit here we have collision on Guid's in two PDB files.
       // This can happen if the PDB Guid is invalid or if we are really
@@ -78,8 +78,8 @@ public:
   // TpiSource for IPI stream.
   TypeServerIpiSource *ipiSrc = nullptr;
 
-  // The PDB signature GUID.
-  codeview::GUID Guid;
+  // The PDB signature.
+  uint32_t Signature;
 };
 
 // Companion to TypeServerSource. Stores the index map for the IPI stream in the
@@ -106,7 +106,7 @@ class UseTypeServerSource : public TpiSource {
   Expected<TypeServerSource *> getTypeServerSource();
 
 public:
-  UseTypeServerSource(COFFLinkerContext &ctx, ObjFile *f, TypeServer2Record ts)
+  UseTypeServerSource(COFFLinkerContext &ctx, ObjFile *f, TypeServerStRecord ts)
       : TpiSource(ctx, UsingPDB, f), typeServerDependency(ts) {}
 
   Error mergeDebugT(TypeMerger *m) override;
@@ -117,7 +117,7 @@ public:
 
   // Information about the PDB type server dependency, that needs to be loaded
   // in before merging this OBJ.
-  TypeServer2Record typeServerDependency;
+  TypeServerStRecord typeServerDependency;
 };
 
 // This class represents the debug type stream of a Microsoft precompiled
@@ -198,7 +198,7 @@ TpiSource *lld::coff::makeTypeServerSource(COFFLinkerContext &ctx,
 
 TpiSource *lld::coff::makeUseTypeServerSource(COFFLinkerContext &ctx,
                                               ObjFile *file,
-                                              TypeServer2Record ts) {
+                                              TypeServerStRecord ts) {
   return make<UseTypeServerSource>(ctx, file, ts);
 }
 
@@ -415,11 +415,11 @@ Error TypeServerSource::mergeDebugT(TypeMerger *m) {
 }
 
 Expected<TypeServerSource *> UseTypeServerSource::getTypeServerSource() {
-  const codeview::GUID &tsId = typeServerDependency.getGuid();
+  uint32_t tsSignature = typeServerDependency.getSignature();
   StringRef tsPath = typeServerDependency.getName();
 
   TypeServerSource *tsSrc = nullptr;
-  auto it = ctx.typeServerSourceMappings.find(tsId);
+  auto it = ctx.typeServerSourceMappings.find(tsSignature);
   if (it != ctx.typeServerSourceMappings.end()) {
     tsSrc = (TypeServerSource *)it->second;
   }
@@ -440,7 +440,7 @@ Expected<TypeServerSource *> UseTypeServerSource::getTypeServerSource() {
     // Just because a file with a matching name was found and it was an actual
     // PDB file doesn't mean it matches.  For it to match the InfoStream's GUID
     // must match the GUID specified in the TypeServer2 record.
-    if (tsSrc->Guid != tsId) {
+    if (tsSrc->Signature != tsSignature) {
       return createFileError(tsPath,
                              make_error<pdb::PDBError>(
                                  pdb::pdb_error_code::signature_out_of_date));

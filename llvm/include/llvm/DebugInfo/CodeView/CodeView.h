@@ -71,6 +71,42 @@ enum SymbolKind : uint16_t {
     return a;                                                                  \
   }
 
+
+enum class CPUTypeCV5 : uint8_t {
+  Intel8080 = 0x0,
+  Intel8086 = 0x1,
+  Intel80286 = 0x2,
+  Intel80386 = 0x3,
+  Intel80486 = 0x4,
+  Pentium = 0x5,
+  PentiumPro = 0x6,
+  Pentium3 = 0x7,
+  MIPS = 0x10,
+  MIPS16 = 0x11,
+  MIPS32 = 0x12,
+  MIPS64 = 0x13,
+  MIPSI = 0x14,
+  MIPSII = 0x15,
+  MIPSIII = 0x16,
+  MIPSIV = 0x17,
+  MIPSV = 0x18,
+  M68000 = 0x20,
+  M68010 = 0x21,
+  M68020 = 0x22,
+  M68030 = 0x23,
+  M68040 = 0x24,
+  Alpha = 0x30,
+  Alpha21164 = 0x31,
+  Alpha21164A = 0x32,
+  Alpha21264 = 0x33,
+  Alpha21364 = 0x34,
+  PPC601 = 0x40,
+  PPC603 = 0x41,
+  PPC604 = 0x42,
+  PPC620 = 0x43,
+  Unknown = 0xff,
+};
+
 /// These values correspond to the CV_CPU_TYPE_e enumeration, and are documented
 /// here: https://msdn.microsoft.com/en-us/library/b2fc64ek.aspx
 enum class CPUType : uint16_t {
@@ -321,6 +357,9 @@ enum : uint32_t { SubsectionIgnoreFlag = 0x80000000 };
 
 enum class DebugSubsectionKind : uint32_t {
   None = 0,
+  Compile = 0x1,
+  ObjName = 0x9,
+
   Symbols = 0xf1,
   Lines = 0xf2,
   StringTable = 0xf3,
@@ -340,6 +379,25 @@ enum class DebugSubsectionKind : uint32_t {
 
   XfgHashType = 0xff,
   XfgHashVirtual = 0x100,
+
+  RegisterSt  =  0x1001,  // Register variable
+  ConstantSt  =  0x1002,  // constant symbol
+  UdtSt       =  0x1003,  // User defined type
+  CobolUdtSt  =  0x1004,  // special UDT for cobol that does not symbol pack
+  ManyregSt   =  0x1005,  // multiple register variable
+  BPRel32St   =  0x1006,  // BP-relative
+  LData32St   =  0x1007,  // Module-local symbol
+  GData32St   =  0x1008,  // Global data symbol
+  Pub32St     =  0x1009,  // a public symbol (CV internal reserved)
+  LProc32St   =  0x100a,  // Local procedure start
+  GProc32St   =  0x100b,  // Global procedure start
+  Vftable32   =  0x100c,  // address of virtual function table
+  RegRel32St  =  0x100d,  // register relative address
+  LThread32St =  0x100e,  // local thread storage
+  GThread32St =  0x100f,  // global thread storage
+  LProcMipsSt =  0x1010,  // Local procedure start
+  GProcMipsSt =  0x1011,  // Global procedure start
+  Frameproc   =  0x1012,  // extra frame and proc information
 };
 
 /// Equivalent to CV_ptrtype_e.

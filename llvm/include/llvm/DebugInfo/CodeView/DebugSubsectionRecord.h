@@ -28,8 +28,8 @@ class DebugSubsection;
 
 // Corresponds to the `CV_DebugSSubsectionHeader_t` structure.
 struct DebugSubsectionHeader {
-  support::ulittle32_t Kind;   // codeview::DebugSubsectionKind enum
-  support::ulittle32_t Length; // number of bytes occupied by this record.
+  support::ulittle16_t Length; // Length of the record excluding the length field
+  support::ulittle16_t Kind; // Type of symbol
 };
 
 class DebugSubsectionRecord {

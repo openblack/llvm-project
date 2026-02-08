@@ -172,6 +172,17 @@ Error SymbolRecordMapping::visitKnownRecord(CVSymbol &CVR, ExportSym &Export) {
 }
 
 Error SymbolRecordMapping::visitKnownRecord(CVSymbol &CVR,
+                                            CompileSym &Compile) {
+
+  error(IO.mapEnum(Compile.Machine));
+  error(IO.mapEnum(Compile.Language));
+  error(IO.mapInteger(Compile.Flags));
+  error(IO.mapStringSized(Compile.Version));
+
+  return Error::success();
+}
+
+Error SymbolRecordMapping::visitKnownRecord(CVSymbol &CVR,
                                             Compile2Sym &Compile2) {
 
   error(IO.mapEnum(Compile2.Flags));
@@ -393,6 +404,15 @@ Error SymbolRecordMapping::visitKnownRecord(CVSymbol &CVR, LocalSym &Local) {
   error(IO.mapInteger(Local.Type));
   error(IO.mapEnum(Local.Flags));
   error(IO.mapStringZ(Local.Name));
+
+  return Error::success();
+}
+
+Error SymbolRecordMapping::visitKnownRecord(CVSymbol &CVR,
+                                            ObjNameStSym &ObjName) {
+
+  error(IO.mapInteger(ObjName.Signature));
+  error(IO.mapStringSized(ObjName.Name));
 
   return Error::success();
 }

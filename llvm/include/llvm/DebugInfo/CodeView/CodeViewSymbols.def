@@ -24,14 +24,14 @@
 #endif
 
 // 16 bit symbol types. Not very useful, provided only for reference.
-CV_SYMBOL(S_COMPILE       , 0x0001)
+SYMBOL_RECORD(S_COMPILE       , 0x0001, CompileSym)
 CV_SYMBOL(S_REGISTER_16t  , 0x0002)
 CV_SYMBOL(S_CONSTANT_16t  , 0x0003)
 CV_SYMBOL(S_UDT_16t       , 0x0004)
 CV_SYMBOL(S_SSEARCH       , 0x0005)
 CV_SYMBOL(S_SKIP          , 0x0007)
 CV_SYMBOL(S_CVRESERVE     , 0x0008)
-CV_SYMBOL(S_OBJNAME_ST    , 0x0009)
+SYMBOL_RECORD(S_OBJNAME_ST    , 0x0009, ObjNameStSym)
 CV_SYMBOL(S_ENDARG        , 0x000a)
 CV_SYMBOL(S_COBOLUDT_16t  , 0x000b)
 CV_SYMBOL(S_MANYREG_16t   , 0x000c)

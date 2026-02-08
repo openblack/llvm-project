@@ -30,6 +30,7 @@ Error InfoStream::reload() {
                              "PDB Stream does not contain a header."));
 
   switch (Header->Version) {
+  case PdbImplVC98:
   case PdbImplVC70:
   case PdbImplVC80:
   case PdbImplVC110:

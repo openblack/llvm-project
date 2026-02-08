@@ -34,7 +34,7 @@ Error DebugSubsectionRecord::initialize(BinaryStreamRef Stream,
 
   DebugSubsectionKind Kind =
       static_cast<DebugSubsectionKind>(uint32_t(Header->Kind));
-  if (auto EC = Reader.readStreamRef(Info.Data, Header->Length))
+  if (auto EC = Reader.readStreamRef(Info.Data, Header->Length - 2))
     return EC;
   Info.Kind = Kind;
   return Error::success();

@@ -2485,7 +2485,7 @@ Error LVLogicalVisitor::visitKnownRecord(CVType &Record, UnionRecord &Union,
 }
 
 // LF_TYPESERVER2 (TPI)
-Error LVLogicalVisitor::visitKnownRecord(CVType &Record, TypeServer2Record &TS,
+Error LVLogicalVisitor::visitKnownRecord(CVType &Record, TypeServerStRecord &TS,
                                          TypeIndex TI, LVElement *Element) {
   LLVM_DEBUG({
     printTypeBegin(Record, TI, Element, StreamTPI);

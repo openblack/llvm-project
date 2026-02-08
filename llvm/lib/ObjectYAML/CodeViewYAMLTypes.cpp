@@ -558,7 +558,7 @@ template <> void LeafRecordImpl<VFTableShapeRecord>::map(IO &IO) {
   IO.mapRequired("Slots", Record.Slots);
 }
 
-template <> void LeafRecordImpl<TypeServer2Record>::map(IO &IO) {
+template <> void LeafRecordImpl<TypeServerStRecord>::map(IO &IO) {
   IO.mapRequired("Guid", Record.Guid);
   IO.mapRequired("Age", Record.Age);
   IO.mapRequired("Name", Record.Name);

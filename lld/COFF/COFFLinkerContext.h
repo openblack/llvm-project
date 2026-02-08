@@ -44,7 +44,7 @@ public:
 
   void addTpiSource(TpiSource *tpi) { tpiSourceList.push_back(tpi); }
 
-  std::map<llvm::codeview::GUID, TpiSource *> typeServerSourceMappings;
+  std::map<uint32_t, TpiSource *> typeServerSourceMappings;
   std::map<uint32_t, TpiSource *> precompSourceMappings;
 
   /// List of all output sections. After output sections are finalized, this

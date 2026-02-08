@@ -133,6 +133,7 @@ public:
   Error mapEncodedInteger(int64_t &Value, const Twine &Comment = "");
   Error mapEncodedInteger(uint64_t &Value, const Twine &Comment = "");
   Error mapEncodedInteger(APSInt &Value, const Twine &Comment = "");
+  Error mapStringSized(StringRef &Value, const Twine &Comment = "");
   Error mapStringZ(StringRef &Value, const Twine &Comment = "");
   Error mapGuid(GUID &Guid, const Twine &Comment = "");
 

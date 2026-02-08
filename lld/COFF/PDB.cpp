@@ -759,8 +759,7 @@ translateStringTableIndex(COFFLinkerContext &ctx, uint32_t objIndex,
 void DebugSHandler::handleDebugS(SectionChunk *debugChunk) {
   // Note that we are processing the *unrelocated* section contents. They will
   // be relocated later during PDB writing.
-  ArrayRef<uint8_t> contents = debugChunk->getContents();
-  contents = SectionChunk::consumeDebugMagic(contents, ".debug$S");
+  ArrayRef<uint8_t> contents = debugChunk->consumeDebugMagic();
   DebugSubsectionArray subsections;
   BinaryStreamReader reader(contents, llvm::endianness::little);
   ExitOnError exitOnErr;
@@ -783,6 +782,27 @@ void DebugSHandler::handleDebugS(SectionChunk *debugChunk) {
       exitOnErr(cvStrTab.initialize(ss.getRecordData()));
       break;
     }
+    case DebugSubsectionKind::Compile:
+    case DebugSubsectionKind::ObjName:
+    case DebugSubsectionKind::RegisterSt:
+    case DebugSubsectionKind::ConstantSt:
+    case DebugSubsectionKind::UdtSt:
+    case DebugSubsectionKind::CobolUdtSt:
+    case DebugSubsectionKind::ManyregSt:
+    case DebugSubsectionKind::BPRel32St:
+    case DebugSubsectionKind::LData32St:
+    case DebugSubsectionKind::GData32St:
+    case DebugSubsectionKind::Pub32St:
+    case DebugSubsectionKind::LProc32St:
+    case DebugSubsectionKind::GProc32St:
+    case DebugSubsectionKind::Vftable32:
+    case DebugSubsectionKind::RegRel32St:
+    case DebugSubsectionKind::LThread32St:
+    case DebugSubsectionKind::GThread32St:
+    case DebugSubsectionKind::LProcMipsSt:
+    case DebugSubsectionKind::GProcMipsSt:
+    case DebugSubsectionKind::Frameproc:
+      break;
     case DebugSubsectionKind::FileChecksums:
       assert(!checksums.valid() &&
              "Encountered multiple checksum subsections!");

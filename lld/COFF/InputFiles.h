@@ -317,6 +317,9 @@ private:
   std::vector<SectionChunk *> sparseChunks;
 
   DWARFCache *dwarf = nullptr;
+
+public:
+  uint32_t ptrToRawDataFirstDebugS = 0;
 };
 
 // This is a PDB type server dependency, that is not a input file per se, but

@@ -709,6 +709,14 @@ ArrayRef<uint8_t> SectionChunk::getContents() const {
 
 ArrayRef<uint8_t> SectionChunk::consumeDebugMagic() {
   assert(isCodeView());
+
+  // There isn't a magic for debug$S if it's not the first
+  if (getSectionName() == ".debug$S")
+  {
+    if (header->PointerToRawData != file->ptrToRawDataFirstDebugS)
+      return getContents();
+  }
+
   return consumeDebugMagic(getContents(), getSectionName());
 }
 

@@ -618,10 +618,10 @@ Error TypeRecordMapping::visitKnownRecord(CVType &CVR,
 }
 
 Error TypeRecordMapping::visitKnownRecord(CVType &CVR,
-                                          TypeServer2Record &Record) {
-  error(IO.mapGuid(Record.Guid, "Guid"));
+                                          TypeServerStRecord &Record) {
+  error(IO.mapInteger(Record.Signature, "Signature"));
   error(IO.mapInteger(Record.Age, "Age"));
-  error(IO.mapStringZ(Record.Name, "Name"));
+  error(IO.mapStringSized(Record.Name, "Name"));
   return Error::success();
 }
 

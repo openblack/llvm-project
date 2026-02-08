@@ -661,6 +661,21 @@ public:
   uint32_t RecordOffset = 0;
 };
 
+// S_OBJNAME_ST
+class ObjNameStSym : public SymbolRecord {
+public:
+  explicit ObjNameStSym() : SymbolRecord(SymbolRecordKind::ObjNameStSym) {}
+  explicit ObjNameStSym(SymbolRecordKind Kind) : SymbolRecord(Kind) {}
+  explicit ObjNameStSym(uint32_t RecordOffset)
+      : SymbolRecord(SymbolRecordKind::ObjNameStSym), RecordOffset(RecordOffset) {
+  }
+
+  uint32_t Signature = 0;
+  StringRef Name;
+
+  uint32_t RecordOffset = 0;
+};
+
 // S_OBJNAME
 class ObjNameSym : public SymbolRecord {
 public:
@@ -715,6 +730,22 @@ public:
   uint32_t ModFilenameOffset = 0;
   LocalSymFlags Flags = LocalSymFlags::None;
   StringRef Name;
+
+  uint32_t RecordOffset = 0;
+};
+
+// S_COMPILE
+class CompileSym : public SymbolRecord {
+public:
+  explicit CompileSym(SymbolRecordKind Kind) : SymbolRecord(Kind) {}
+  explicit CompileSym(uint32_t RecordOffset)
+      : SymbolRecord(SymbolRecordKind::CompileSym),
+        RecordOffset(RecordOffset) {}
+
+  CPUTypeCV5 Machine;
+  SourceLanguage Language;
+  uint16_t Flags;
+  StringRef Version;
 
   uint32_t RecordOffset = 0;
 };
@@ -1022,6 +1053,9 @@ public:
 
   uint32_t RecordOffset = 0;
 };
+
+Expected<CVSymbol> readSymbolFromReader(BinaryStreamReader& Reader,
+                                        uint32_t Offset);
 
 Expected<CVSymbol> readSymbolFromStream(BinaryStreamRef Stream,
                                         uint32_t Offset);

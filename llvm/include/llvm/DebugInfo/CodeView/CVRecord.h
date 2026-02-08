@@ -87,12 +87,10 @@ Error forEachCodeViewRecord(ArrayRef<uint8_t> StreamBuffer, Func F) {
   return Error::success();
 }
 
-/// Read a complete record from a stream at a random offset.
 template <typename Kind>
-inline Expected<CVRecord<Kind>> readCVRecordFromStream(BinaryStreamRef Stream,
+inline Expected<CVRecord<Kind>> readCVRecordFromReader(BinaryStreamReader& Reader,
                                                        uint32_t Offset) {
   const RecordPrefix *Prefix = nullptr;
-  BinaryStreamReader Reader(Stream);
   Reader.setOffset(Offset);
 
   if (auto EC = Reader.readObject(Prefix))
@@ -105,6 +103,14 @@ inline Expected<CVRecord<Kind>> readCVRecordFromStream(BinaryStreamRef Stream,
   if (auto EC = Reader.readBytes(RawData, Prefix->RecordLen + sizeof(uint16_t)))
     return std::move(EC);
   return codeview::CVRecord<Kind>(RawData);
+}
+
+/// Read a complete record from a stream at a random offset.
+template <typename Kind>
+inline Expected<CVRecord<Kind>> readCVRecordFromStream(BinaryStreamRef Stream,
+                                                       uint32_t Offset) {
+  BinaryStreamReader Reader(Stream);
+  return readCVRecordFromReader<Kind>(Reader, Offset);
 }
 
 } // end namespace codeview

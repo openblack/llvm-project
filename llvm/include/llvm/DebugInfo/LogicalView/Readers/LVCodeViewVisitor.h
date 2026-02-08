@@ -400,7 +400,7 @@ public:
                          LVElement *Element);
   Error visitKnownRecord(CVType &Record, UnionRecord &Union, TypeIndex TI,
                          LVElement *Element);
-  Error visitKnownRecord(CVType &Record, TypeServer2Record &TS, TypeIndex TI,
+  Error visitKnownRecord(CVType &Record, TypeServerStRecord &TS, TypeIndex TI,
                          LVElement *Element);
   Error visitKnownRecord(CVType &Record, VFTableRecord &VFT, TypeIndex TI,
                          LVElement *Element);

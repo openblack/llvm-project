@@ -158,7 +158,7 @@ Error TypeNameComputer::visitKnownRecord(CVType &CVR, FuncIdRecord &Func) {
   return Error::success();
 }
 
-Error TypeNameComputer::visitKnownRecord(CVType &CVR, TypeServer2Record &TS) {
+Error TypeNameComputer::visitKnownRecord(CVType &CVR, TypeServerStRecord &TS) {
   Name = TS.getName();
   return Error::success();
 }

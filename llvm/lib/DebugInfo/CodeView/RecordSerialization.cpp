@@ -152,3 +152,8 @@ Expected<CVSymbol> llvm::codeview::readSymbolFromStream(BinaryStreamRef Stream,
                                                         uint32_t Offset) {
   return readCVRecordFromStream<SymbolKind>(Stream, Offset);
 }
+
+Expected<CVSymbol> llvm::codeview::readSymbolFromReader(BinaryStreamReader& Reader,
+                                                        uint32_t Offset) {
+  return readCVRecordFromReader<SymbolKind>(Reader, Offset);
+}

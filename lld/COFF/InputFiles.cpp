@@ -293,6 +293,10 @@ SectionChunk *ObjFile::readSection(uint32_t sectionNumber,
     return nullptr;
   }
 
+  if (ptrToRawDataFirstDebugS == 0 && name == ".debug$S") {
+    ptrToRawDataFirstDebugS = sec->PointerToRawData;
+  }
+
   // Object files may have DWARF debug info or MS CodeView debug info
   // (or both).
   //
@@ -828,15 +832,15 @@ void ObjFile::initializeFlags() {
   if (data.empty())
     return;
 
-  DebugSubsectionArray subsections;
+  // DebugSubsectionArray subsections;
 
   BinaryStreamReader reader(data, llvm::endianness::little);
   ExitOnError exitOnErr;
-  exitOnErr(reader.readArray(subsections, data.size()));
+  // exitOnErr(reader.readArray(subsections, data.size()));
 
-  for (const DebugSubsectionRecord &ss : subsections) {
-    if (ss.kind() != DebugSubsectionKind::Symbols)
-      continue;
+  // for (const DebugSubsectionRecord &ss : subsections) {
+  //   if (ss.kind() != DebugSubsectionKind::Symbols)
+  //     continue;
 
     unsigned offset = 0;
 
@@ -844,26 +848,25 @@ void ObjFile::initializeFlags() {
     // and S_COMPILE3, and they usually appear at the beginning of the
     // stream.
     for (unsigned i = 0; i < 2; ++i) {
-      Expected<CVSymbol> sym = readSymbolFromStream(ss.getRecordData(), offset);
+      Expected<CVSymbol> sym = readSymbolFromReader(reader, offset);
       if (!sym) {
         consumeError(sym.takeError());
         return;
       }
-      if (sym->kind() == SymbolKind::S_COMPILE3) {
+      if (sym->kind() == SymbolKind::S_COMPILE) {
         auto cs =
-            cantFail(SymbolDeserializer::deserializeAs<Compile3Sym>(sym.get()));
-        hotPatchable =
-            (cs.Flags & CompileSym3Flags::HotPatch) != CompileSym3Flags::None;
+            cantFail(SymbolDeserializer::deserializeAs<CompileSym>(sym.get()));
+        hotPatchable = false;
       }
-      if (sym->kind() == SymbolKind::S_OBJNAME) {
-        auto objName = cantFail(SymbolDeserializer::deserializeAs<ObjNameSym>(
+      if (sym->kind() == SymbolKind::S_OBJNAME_ST) {
+        auto objName = cantFail(SymbolDeserializer::deserializeAs<ObjNameStSym>(
             sym.get()));
         if (objName.Signature)
           pchSignature = objName.Signature;
       }
       offset += sym->length();
     }
-  }
+  // }
 }
 
 // Depending on the compilation flags, OBJs can refer to external files,
@@ -913,9 +916,9 @@ void ObjFile::initializeDependencies() {
   }
 
   // This object file was compiled with /Zi. Enqueue the PDB dependency.
-  if (firstType->kind() == LF_TYPESERVER2) {
-    TypeServer2Record ts = cantFail(
-        TypeDeserializer::deserializeAs<TypeServer2Record>(firstType->data()));
+  if (firstType->kind() == LF_TYPESERVER_ST) {
+    TypeServerStRecord ts = cantFail(
+        TypeDeserializer::deserializeAs<TypeServerStRecord>(firstType->data()));
     debugTypesObj = makeUseTypeServerSource(ctx, this, ts);
     enqueuePdbFile(ts.getName(), this);
     return;
