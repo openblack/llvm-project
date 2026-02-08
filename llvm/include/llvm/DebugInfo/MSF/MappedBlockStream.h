@@ -43,12 +43,23 @@ public:
                BinaryStreamRef MsfData, BumpPtrAllocator &Allocator);
 
   static std::unique_ptr<MappedBlockStream>
+  createIndexedStream(const MSFLesserLayout &Layout, BinaryStreamRef MsfData,
+                      uint32_t StreamIndex, BumpPtrAllocator &Allocator);
+  static std::unique_ptr<MappedBlockStream>
   createIndexedStream(const MSFLayout &Layout, BinaryStreamRef MsfData,
                       uint32_t StreamIndex, BumpPtrAllocator &Allocator);
 
   static std::unique_ptr<MappedBlockStream>
+  createFpmStream(const MSFLesserLayout &Layout, BinaryStreamRef MsfData,
+                  BumpPtrAllocator &Allocator);
+
+  static std::unique_ptr<MappedBlockStream>
   createFpmStream(const MSFLayout &Layout, BinaryStreamRef MsfData,
                   BumpPtrAllocator &Allocator);
+
+  static std::unique_ptr<MappedBlockStream>
+  createDirectoryStream(const MSFLesserLayout &Layout, BinaryStreamRef MsfData,
+                        BumpPtrAllocator &Allocator);
 
   static std::unique_ptr<MappedBlockStream>
   createDirectoryStream(const MSFLayout &Layout, BinaryStreamRef MsfData,

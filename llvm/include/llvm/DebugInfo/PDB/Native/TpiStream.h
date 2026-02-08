@@ -49,7 +49,8 @@ public:
 
   uint32_t getHashKeySize() const;
   uint32_t getNumHashBuckets() const;
-  FixedStreamArray<support::ulittle32_t> getHashValues() const;
+  FixedStreamArray<support::ulittle16_t> getHashValuesV50() const;
+  FixedStreamArray<support::ulittle32_t> getHashValuesV80() const;
   FixedStreamArray<codeview::TypeIndexOffset> getTypeIndexOffsets() const;
   HashTable<support::ulittle32_t> &getHashAdjusters();
 
@@ -84,7 +85,8 @@ private:
   codeview::CVTypeArray TypeRecords;
 
   std::unique_ptr<BinaryStream> HashStream;
-  FixedStreamArray<support::ulittle32_t> HashValues;
+  FixedStreamArray<support::ulittle16_t> HashValuesV50;
+  FixedStreamArray<support::ulittle32_t> HashValuesV80;
   FixedStreamArray<codeview::TypeIndexOffset> TypeIndexOffsets;
   HashTable<support::ulittle32_t> HashAdjusters;
 

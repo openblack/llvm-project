@@ -207,6 +207,27 @@ Error CodeViewRecordIO::mapEncodedInteger(APSInt &Value, const Twine &Comment) {
   return Error::success();
 }
 
+Error CodeViewRecordIO::mapStringSized(StringRef &Value, const Twine &Comment) {
+  if (isStreaming()) {
+    auto NullTerminatedString = StringRef(Value.data(), Value.size() + 1);
+    emitComment(Comment);
+    Streamer->emitBytes(NullTerminatedString);
+    incrStreamedLen(NullTerminatedString.size());
+  } else if (isWriting()) {
+    // Truncate if we attempt to write too much.
+    StringRef S = Value.take_front(maxFieldLength() - 1);
+    if (auto EC = Writer->writeCString(S))
+      return EC;
+  } else {
+    uint8_t Length;
+    if (auto EC = Reader->readInteger(Length))
+      return EC;
+    if (auto EC = Reader->readFixedString(Value, Length))
+      return EC;
+  }
+  return Error::success();
+}
+
 Error CodeViewRecordIO::mapStringZ(StringRef &Value, const Twine &Comment) {
   if (isStreaming()) {
     auto NullTerminatedString = StringRef(Value.data(), Value.size() + 1);

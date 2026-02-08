@@ -94,6 +94,8 @@ public:
 
   Error parseFileHeaders();
   Error parseStreamData();
+  Error parseLesserStreamData();
+  Error parseBiggerStreamData();
 
   Expected<InfoStream &> getPDBInfoStream();
   Expected<DbiStream &> getPDBDbiStream();
@@ -125,6 +127,8 @@ private:
 
   std::unique_ptr<BinaryStream> Buffer;
 
+  bool UseBigMSF;
+  msf::MSFLesserLayout LesserContainerLayout;
   msf::MSFLayout ContainerLayout;
 
   std::unique_ptr<GlobalsStream> Globals;

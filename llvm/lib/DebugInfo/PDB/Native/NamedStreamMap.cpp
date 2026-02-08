@@ -51,6 +51,9 @@ Error NamedStreamMap::load(BinaryStreamReader &Stream) {
                       make_error<RawError>(raw_error_code::corrupt_file,
                                            "Expected string buffer size"));
 
+  if (StringBufferSize == 0)
+    return Error::success();
+
   StringRef Buffer;
   if (auto EC = Stream.readFixedString(Buffer, StringBufferSize))
     return EC;
