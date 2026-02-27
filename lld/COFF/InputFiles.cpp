@@ -921,6 +921,27 @@ void ObjFile::initializeDependencies() {
     return;
   }
 
+  // Handle older LF_TYPESERVER (0x1501) and LF_TYPESERVER_ST (0x0016) formats.
+  // These use a 4-byte CRC signature instead of a 16-byte GUID. Parse manually
+  // and create a TypeServer2Record with a zeroed GUID so that GUID matching is
+  // skipped in UseTypeServerSource::getTypeServerSource().
+  if (firstType->kind() == LF_TYPESERVER ||
+      firstType->kind() == LF_TYPESERVER_ST) {
+    ArrayRef<uint8_t> content = firstType->content();
+    // Record body: [4 bytes CRC sig][4 bytes age][null-terminated name]
+    if (content.size() >= 9) {
+      uint32_t age = support::endian::read32le(content.data() + 4);
+      StringRef name(reinterpret_cast<const char *>(content.data() + 8));
+      TypeServer2Record ts(TypeRecordKind::TypeServer2);
+      ts.Age = age;
+      ts.Name = name;
+      // Guid is zero-initialized; GUID matching skipped for old-style records.
+      debugTypesObj = makeUseTypeServerSource(ctx, this, ts);
+      enqueuePdbFile(ts.getName(), this);
+    }
+    return;
+  }
+
   // This object was compiled with /Yu. It uses types from another object file
   // with a matching signature.
   if (firstType->kind() == LF_PRECOMP) {

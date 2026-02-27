@@ -57,6 +57,14 @@ public:
     if (!expectedInfo)
       return;
     Guid = expectedInfo->getGuid();
+    // PDB 2.0 (VC6 era, PdbImplVC98 and earlier) predates the 16-byte GUID
+    // field in the InfoStream. The bytes at the GUID offset are named stream
+    // map data, not a real GUID. Leave Guid zeroed to signal that GUID matching
+    // should be skipped for this PDB.
+    if (expectedInfo->getVersion() <= pdb::PdbImplVC98) {
+      Guid = {};
+      return;
+    }
     auto it = ctx.typeServerSourceMappings.emplace(Guid, this);
     if (!it.second) {
       // If we hit here we have collision on Guid's in two PDB files.
@@ -78,8 +86,10 @@ public:
   // TpiSource for IPI stream.
   TypeServerIpiSource *ipiSrc = nullptr;
 
-  // The PDB signature GUID.
-  codeview::GUID Guid;
+  // The PDB signature GUID. Zero-initialized; set to the real GUID for modern
+  // PDBs (PdbImplVC70+). Old PDB 2.0 (PdbImplVC98 and earlier) predates GUIDs,
+  // so Guid is left zeroed to signal that GUID matching should be skipped.
+  codeview::GUID Guid = {};
 };
 
 // Companion to TypeServerSource. Stores the index map for the IPI stream in the
@@ -440,7 +450,13 @@ Expected<TypeServerSource *> UseTypeServerSource::getTypeServerSource() {
     // Just because a file with a matching name was found and it was an actual
     // PDB file doesn't mean it matches.  For it to match the InfoStream's GUID
     // must match the GUID specified in the TypeServer2 record.
-    if (tsSrc->Guid != tsId) {
+    // Exceptions that fall back to name-only matching:
+    // - Old-style records (LF_TYPESERVER_ST, LF_TYPESERVER) have no GUID; they
+    //   use a CRC signature. These are stored with a zeroed tsId.
+    // - Old-format PDBs (e.g. PDB 2.0 / VC6) have no GUID in their InfoStream;
+    //   tsSrc->Guid is zeroed in that case (see Guid = {} initializer above).
+    codeview::GUID nullGuid = {};
+    if (tsId != nullGuid && tsSrc->Guid != nullGuid && tsSrc->Guid != tsId) {
       return createFileError(tsPath,
                              make_error<pdb::PDBError>(
                                  pdb::pdb_error_code::signature_out_of_date));
