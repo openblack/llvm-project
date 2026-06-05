@@ -1584,6 +1584,38 @@ void Writer::mergeSections() {
     }
     to->merge(from);
   }
+
+  // VC6 link.exe folds the read-only directories (.xdata, .idata, .edata) into
+  // .rdata and lays them out by section priority, not by the order they were
+  // merged. ctx.config.merge is iterated alphabetically, so the default
+  // .edata/.idata/.xdata merges are appended in that order and .xdata ends up
+  // last. Reorder rdataSec to match VC6's [.rdata][.rdata$r][.xdata][.idata]
+  // [.edata] layout (the IAT stays at the front). i386 only; stable, so the
+  // address/link order within each band is preserved.
+  if (ctx.config.machine == I386 && rdataSec) {
+    auto prio = [](const Chunk *c) -> int {
+      auto *sc = dyn_cast<SectionChunk>(c);
+      if (!sc)
+        return 20; // synthetic chunks (regenerated IAT/import dir): .rdata band
+      StringRef n = sc->getSectionName();
+      if (n.starts_with(".idata$5"))
+        return 0; // import address table: front of .rdata
+      if (n == ".rdata")
+        return 20;
+      if (n.starts_with(".rdata$"))
+        return 21;
+      if (n.starts_with(".xdata"))
+        return 30; // C++ exception data
+      if (n.starts_with(".idata"))
+        return 40; // import directory + hint-name table
+      if (n.starts_with(".edata"))
+        return 50; // export directory
+      return 20;
+    };
+    llvm::stable_sort(rdataSec->chunks, [&](const Chunk *a, const Chunk *b) {
+      return prio(a) < prio(b);
+    });
+  }
 }
 
 // EC targets may have chunks of various architectures mixed together at this
