@@ -369,8 +369,29 @@ void OutputSection::setPermissions(uint32_t c) {
   header.Characteristics |= c;
 }
 
-void OutputSection::merge(OutputSection *other) {
-  chunks.insert(chunks.end(), other->chunks.begin(), other->chunks.end());
+void OutputSection::merge(OutputSection *other, COFFLinkerContext &ctx) {
+  // A plain append (chunks.insert(chunks.end(), ...)) puts every chunk from
+  // `other` after every existing chunk in `this`. That is correct for lld's
+  // built-in default merges (.bss=.data, .idata=.rdata, ...): each folds a
+  // section that trails its target in the image, so appending preserves the
+  // layout.
+  //
+  // An explicit /merge directive (from the command line or an object's
+  // .drectve) can instead place a section at the *front* of its target. The VC6
+  // CRT initializer arrays are the motivating case: crt0init.c / cinitexe.c fold
+  // them into .data via their own `#pragma comment(linker, "/merge:.CRT=.data")`
+  // and the linker lays the .CRT block (already grouped/sorted by its $-suffix:
+  // XCA, XCU, XCZ, XIA, ...) at the very start of .data, ahead of the regular
+  // initialized data. Appending would corrupt every address after that point in
+  // a byte-faithful relink, so prepend instead. `other->chunks` is already in
+  // the correct interleaved order from the $-suffix grouping, so it is inserted
+  // verbatim; a single object contributing several non-contiguous CRT sections
+  // (crt0init.obj provides all eight A/Z sentinels) is handled correctly because
+  // the ordering comes from the section names, not from file order.
+  if (ctx.config.explicitMerge.count(other->name) && !other->chunks.empty())
+    chunks.insert(chunks.begin(), other->chunks.begin(), other->chunks.end());
+  else
+    chunks.insert(chunks.end(), other->chunks.begin(), other->chunks.end());
   other->chunks.clear();
   contribSections.insert(contribSections.end(), other->contribSections.begin(),
                          other->contribSections.end());
@@ -1582,7 +1603,7 @@ void Writer::mergeSections() {
       from->name = toName;
       continue;
     }
-    to->merge(from);
+    to->merge(from, ctx);
   }
 
   // VC6 link.exe folds the read-only directories (.xdata, .idata, .edata) into

@@ -201,6 +201,15 @@ struct Configuration {
   // Used for /merge:from=to (e.g. /merge:.rdata=.text)
   std::map<StringRef, StringRef> merge;
 
+  // Subset of `merge` keys that came from an explicit user /merge directive (or
+  // an object's .drectve), as opposed to lld's built-in default merges. The
+  // defaults (.bss=.data, .idata=.rdata, ...) all fold a section that trails
+  // its target in the image, so a plain append is correct for them. A user
+  // directive such as /merge:.CRT=.data can place a section at an interior
+  // position (the VC6 CRT initializer arrays sit at the front of .data), which
+  // the merge step must preserve by input order rather than appending.
+  std::set<StringRef> explicitMerge;
+
   // Used for /section=.name,{DEKPRSW} to set section attributes.
   std::map<StringRef, uint32_t> section;
 

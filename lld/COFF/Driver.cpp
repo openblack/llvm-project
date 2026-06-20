@@ -453,7 +453,7 @@ void LinkerDriver::parseDirectives(InputFile *file) {
       ctx.config.manifestDependencies.insert(arg->getValue());
       break;
     case OPT_merge:
-      parseMerge(arg->getValue());
+      parseMerge(arg->getValue(), /*isExplicit=*/true);
       break;
     case OPT_nodefaultlib:
       ctx.config.noDefaultLibs.insert(findLib(arg->getValue()).lower());
@@ -2103,7 +2103,7 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
 
   // Handle /merge
   for (auto *arg : args.filtered(OPT_merge))
-    parseMerge(arg->getValue());
+    parseMerge(arg->getValue(), /*isExplicit=*/true);
 
   // Add default section merging rules after user rules. User rules take
   // precedence, but we will emit a warning if there is a conflict.

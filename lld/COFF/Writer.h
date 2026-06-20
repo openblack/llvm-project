@@ -43,7 +43,7 @@ public:
   }
   void addChunk(Chunk *c);
   void insertChunkAtStart(Chunk *c);
-  void merge(OutputSection *other);
+  void merge(OutputSection *other, COFFLinkerContext &ctx);
   void setPermissions(uint32_t c);
   uint64_t getRVA() const { return header.VirtualAddress; }
   uint64_t getFileOff() const { return header.PointerToRawData; }

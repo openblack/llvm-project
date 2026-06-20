@@ -159,7 +159,7 @@ void LinkerDriver::parseAlternateName(StringRef s) {
 
 // Parse a string of the form of "<from>=<to>".
 // Results are directly written to Config.
-void LinkerDriver::parseMerge(StringRef s) {
+void LinkerDriver::parseMerge(StringRef s, bool isExplicit) {
   auto [from, to] = s.split('=');
   if (from.empty() || to.empty())
     Fatal(ctx) << "/merge: invalid argument: " << s;
@@ -167,6 +167,8 @@ void LinkerDriver::parseMerge(StringRef s) {
     Fatal(ctx) << "/merge: cannot merge '.rsrc' with any section";
   if (from == ".reloc" || to == ".reloc")
     Fatal(ctx) << "/merge: cannot merge '.reloc' with any section";
+  if (isExplicit)
+    ctx.config.explicitMerge.insert(from);
   auto pair = ctx.config.merge.insert(std::make_pair(from, to));
   bool inserted = pair.second;
   if (!inserted) {

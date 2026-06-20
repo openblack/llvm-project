@@ -231,7 +231,7 @@ private:
                       uint32_t *minor, bool *gotVersion = nullptr);
 
   void parseAlternateName(StringRef);
-  void parseMerge(StringRef);
+  void parseMerge(StringRef, bool isExplicit = false);
   void parsePDBPageSize(StringRef);
   void parseSection(StringRef);
   void parseSectionVSize(StringRef);
