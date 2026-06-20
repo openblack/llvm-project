@@ -533,13 +533,13 @@ void ObjFile::initializeSymbols() {
     symbols[i] = createRegular(sym);
   }
 
-  // for (auto &kv : weakAliases) {
-  //   Symbol *sym = kv.first;
-  //   const coff_aux_weak_external *aux = kv.second;
-  //   checkAndSetWeakAlias(symtab, this, sym, symbols[aux->TagIndex],
-  //                        aux->Characteristics ==
-  //                            IMAGE_WEAK_EXTERN_ANTI_DEPENDENCY);
-  // }
+  for (auto &kv : weakAliases) {
+    Symbol *sym = kv.first;
+    const coff_aux_weak_external *aux = kv.second;
+    checkAndSetWeakAlias(symtab, this, sym, symbols[aux->TagIndex],
+                         aux->Characteristics ==
+                             IMAGE_WEAK_EXTERN_ANTI_DEPENDENCY);
+  }
 
   // Free the memory used by sparseChunks now that symbol loading is finished.
   decltype(sparseChunks)().swap(sparseChunks);
