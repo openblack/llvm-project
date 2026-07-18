@@ -164,6 +164,10 @@ struct Configuration {
   bool noimplib = false;
   std::vector<Export> exports;
   bool hadExplicitExports;
+  // Strings from `-?comment:"..."` / `/comment:"..."` .drectve directives,
+  // embedded verbatim (NUL-terminated) in the PE header padding to reproduce
+  // exestr-style comments left by older linkers (e.g. Intel `#pragma comment`).
+  std::vector<StringRef> headerComments;
   std::set<std::string> delayLoads;
   std::map<std::string, int> dllOrder;
   Symbol *delayLoadHelper = nullptr;

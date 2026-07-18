@@ -431,6 +431,10 @@ void LinkerDriver::parseDirectives(InputFile *file) {
     case OPT_aligncomm:
       parseAligncomm(arg->getValue());
       break;
+    case OPT_comment:
+      // Reproduce exestr-style header comments (e.g. Intel `#pragma comment`).
+      ctx.config.headerComments.push_back(saver().save(arg->getValue()));
+      break;
     case OPT_alternatename:
       parseAlternateName(arg->getValue());
       break;

@@ -1671,6 +1671,10 @@ void Writer::assignAddresses() {
                   sizeof(coff_section) * ctx.outputSections.size();
   sizeOfHeaders +=
       config->is64() ? sizeof(pe32plus_header) : sizeof(pe32_header);
+  // Reserve room for exestr-style header comments (written into the header
+  // padding after the section table, each NUL-terminated).
+  for (StringRef comment : config->headerComments)
+    sizeOfHeaders += comment.size() + 1;
   sizeOfHeaders = alignTo(sizeOfHeaders, config->fileAlign);
   fileSize = sizeOfHeaders;
 
@@ -1943,6 +1947,14 @@ template <typename PEHeaderTy> void Writer::writeHeader() {
   }
   sectionTable = ArrayRef<uint8_t>(
       buf - ctx.outputSections.size() * sizeof(coff_section), buf);
+
+  // Write exestr-style comments into the header padding after the section
+  // table (space reserved in sizeOfHeaders). Each is NUL-terminated.
+  for (StringRef comment : config->headerComments) {
+    memcpy(buf, comment.data(), comment.size());
+    buf += comment.size();
+    *buf++ = '\0';
+  }
 
   if (outputSymtab.empty() && strtab.empty())
     return;
