@@ -1225,7 +1225,7 @@ static void dumpPartialTypeStream(LinePrinter &Printer,
       NumDigits(TypeIndex::FirstNonSimpleIndex + Stream.getNumTypeRecords());
 
   MinimalTypeDumpVisitor V(Printer, Width + 2, Bytes, Extras, Types, RefTracker,
-                           Stream.getNumHashBuckets(), Stream.getHashValues(),
+                           Stream.getNumHashBuckets(), Stream.getHashValuesV80(),
                            &Stream);
 
   if (opts::dump::DumpTypeDependents) {
@@ -1375,7 +1375,7 @@ Error DumpOutputStyle::dumpTpiStream(uint32_t StreamIdx) {
   if (DumpTypes || !Indices.empty()) {
     if (Indices.empty())
       dumpFullTypeStream(P, Types, MaybeTracker, Stream.getNumTypeRecords(),
-                         Stream.getNumHashBuckets(), Stream.getHashValues(),
+                         Stream.getNumHashBuckets(), Stream.getHashValuesV80(),
                          &Stream, DumpBytes, DumpExtras);
     else {
       std::vector<TypeIndex> TiList(Indices.begin(), Indices.end());

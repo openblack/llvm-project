@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "InputFiles.h"
+#include "Pdb2TypeServer.h"
 #include "COFFLinkerContext.h"
 #include "Chunks.h"
 #include "Config.h"
@@ -866,6 +867,11 @@ void ObjFile::initializeFlags() {
   }
 }
 
+// Forward declaration; defined further down, needed by initializeDependencies
+// to resolve a type-server path relative to this OBJ / the output file.
+static std::optional<std::string>
+findPdbPath(StringRef pdbPath, ObjFile *dependentFile, StringRef outputPath);
+
 // Depending on the compilation flags, OBJs can refer to external files,
 // necessary to merge this OBJ into the final PDB. We currently support two
 // types of external files: Precomp/PCH OBJs, when compiling with /Yc and /Yu.
@@ -922,23 +928,81 @@ void ObjFile::initializeDependencies() {
   }
 
   // Handle older LF_TYPESERVER (0x1501) and LF_TYPESERVER_ST (0x0016) formats.
-  // These use a 4-byte CRC signature instead of a 16-byte GUID. Parse manually
-  // and create a TypeServer2Record with a zeroed GUID so that GUID matching is
-  // skipped in UseTypeServerSource::getTypeServerSource().
+  // These are MSVC 6.0 /Zi objects pointing at a PDB 2.0 ("JG") type server,
+  // an older MSF container that PDBFile/NativeSession cannot open (hence no
+  // TypeServerSource/UseTypeServerSource route here, unlike the modern
+  // LF_TYPESERVER2 case above). Resolve the path ourselves, read the file
+  // directly, and hand the reindexed+fixed-up type records to this object as
+  // if they were a plain inline .debug$T -- see Pdb2TypeServer.h.
   if (firstType->kind() == LF_TYPESERVER ||
       firstType->kind() == LF_TYPESERVER_ST) {
+    // Every failure path below falls back to a plain, empty TpiSource
+    // (mirroring the "no data" case above) rather than leaving
+    // debugTypesObj null: this object's .debug$S may still have real symbol
+    // records even though its type-server sidecar couldn't be found/opened/
+    // parsed (a renamed build tree, a missing .o.pdb, an unrecognized
+    // format), and PDBLinker::writeSymbolRecord dereferences debugTypesObj
+    // unconditionally for every symbol record it processes -- leaving it
+    // null here would crash the whole link on what should just be "this
+    // object's symbols get remapped against no extra local types."
     ArrayRef<uint8_t> content = firstType->content();
-    // Record body: [4 bytes CRC sig][4 bytes age][null-terminated name]
-    if (content.size() >= 9) {
-      uint32_t age = support::endian::read32le(content.data() + 4);
-      StringRef name(reinterpret_cast<const char *>(content.data() + 8));
-      TypeServer2Record ts(TypeRecordKind::TypeServer2);
-      ts.Age = age;
-      ts.Name = name;
-      // Guid is zero-initialized; GUID matching skipped for old-style records.
-      debugTypesObj = makeUseTypeServerSource(ctx, this, ts);
-      enqueuePdbFile(ts.getName(), this);
+    // Record body: [4 bytes CRC sig][4 bytes age][name]. The old "_ST" form
+    // (MSVC 6.0 /Zi) stores the name length-prefixed (1 byte length + chars);
+    // the non-ST form stores it null-terminated.
+    if (content.size() < 9) {
+      debugTypesObj = makeTpiSource(ctx, this);
+      return;
     }
+    StringRef name;
+    if (firstType->kind() == LF_TYPESERVER_ST) {
+      uint8_t len = content[8];
+      if (9 + static_cast<size_t>(len) <= content.size())
+        name = StringRef(reinterpret_cast<const char *>(content.data() + 9),
+                         len);
+    } else {
+      name = StringRef(reinterpret_cast<const char *>(content.data() + 8));
+    }
+    if (name.empty()) {
+      debugTypesObj = makeTpiSource(ctx, this);
+      return;
+    }
+
+    std::optional<std::string> path =
+        findPdbPath(name.str(), this, symtab.ctx.config.outputFile);
+    if (!path) {
+      Warn(ctx) << "VC6 type server not found: " << name;
+      debugTypesObj = makeTpiSource(ctx, this);
+      return;
+    }
+    ErrorOr<std::unique_ptr<MemoryBuffer>> mbOrErr =
+        MemoryBuffer::getFile(*path, /*IsText=*/false,
+                             /*RequiresNullTerminator=*/false);
+    if (!mbOrErr) {
+      Warn(ctx) << "failed to open VC6 type server " << *path << ": "
+               << mbOrErr.getError().message();
+      debugTypesObj = makeTpiSource(ctx, this);
+      return;
+    }
+    MemoryBufferRef mbRef = (*mbOrErr)->getMemBufferRef();
+    if (!isPdb2TypeServer(mbRef)) {
+      Warn(ctx) << *path << " is not a recognized PDB 2.0 type server";
+      debugTypesObj = makeTpiSource(ctx, this);
+      return;
+    }
+    Expected<ArrayRef<uint8_t>> typesOrErr =
+        readPdb2TypeServerTypes(mbRef, bAlloc());
+    if (!typesOrErr) {
+      Warn(ctx) << "failed to read VC6 type server " << *path << ": "
+               << toString(typesOrErr.takeError());
+      debugTypesObj = makeTpiSource(ctx, this);
+      return;
+    }
+    // Keep the backing MemoryBuffer alive for the life of the link; the types
+    // above were copied out into bAlloc(), but nothing else needs `mbOrErr`.
+    ctx.driver.takeBuffer(std::move(*mbOrErr));
+
+    debugTypes = *typesOrErr;
+    debugTypesObj = makeTpiSource(ctx, this);
     return;
   }
 
