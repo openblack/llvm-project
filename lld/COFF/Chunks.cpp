@@ -729,6 +729,17 @@ ArrayRef<uint8_t> SectionChunk::consumeDebugMagic(ArrayRef<uint8_t> data,
                                ? DEBUG_HASHES_SECTION_MAGIC
                                : DEBUG_SECTION_MAGIC;
   if (magic != expectedMagic) {
+    // MSVC 6.0 /Zi emits .debug$T with the old CodeView "C11" signature
+    // (CV_SIGNATURE_C11 = 2) instead of C13 (4). The record that follows is a
+    // normal CVType -- an old LF_TYPESERVER / LF_TYPESERVER_ST pointing at a
+    // PDB 2.0 type server -- which the type-server path in
+    // ObjFile::initializeDependencies() already handles. Let it through so
+    // those old type servers get merged. Everything else (notably C11
+    // .debug$S, whose subsection layout the C13 reader can't parse) stays
+    // rejected.
+    constexpr uint32_t CV_SIGNATURE_C11 = 2;
+    if (sectionName == ".debug$T" && magic == CV_SIGNATURE_C11)
+      return data.slice(4);
     warn("ignoring section " + sectionName + " with unrecognized magic 0x" +
          utohexstr(magic));
     return {};

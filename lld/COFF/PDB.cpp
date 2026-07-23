@@ -1522,6 +1522,11 @@ static void addLinkerModuleSectionSymbol(pdb::DbiModuleDescriptorBuilder &mod,
 
   // Output COFF groups for individual chunks of this section.
   for (PartialSection *sec : os.contribSections) {
+    // A contributing section can end up with no chunks (e.g. after section
+    // merging such as .idata folded into .rdata); it has nothing to emit and
+    // would otherwise dereference an empty chunk list below.
+    if (sec->chunks.empty())
+      continue;
     addLinkerModuleCoffGroup(sec, mod, os);
   }
 }
