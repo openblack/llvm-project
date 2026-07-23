@@ -702,6 +702,9 @@ StringRef SectionChunk::getDebugName() const {
 }
 
 ArrayRef<uint8_t> SectionChunk::getContents() const {
+  if (ArrayRef<uint8_t> override = file->getDebugSOverride(this);
+      !override.empty())
+    return override;
   ArrayRef<uint8_t> a;
   cantFail(file->getCOFFObj()->getSectionContents(header, a));
   return a;
@@ -729,16 +732,25 @@ ArrayRef<uint8_t> SectionChunk::consumeDebugMagic(ArrayRef<uint8_t> data,
                                ? DEBUG_HASHES_SECTION_MAGIC
                                : DEBUG_SECTION_MAGIC;
   if (magic != expectedMagic) {
-    // MSVC 6.0 /Zi emits .debug$T with the old CodeView "C11" signature
-    // (CV_SIGNATURE_C11 = 2) instead of C13 (4). The record that follows is a
-    // normal CVType -- an old LF_TYPESERVER / LF_TYPESERVER_ST pointing at a
-    // PDB 2.0 type server -- which the type-server path in
-    // ObjFile::initializeDependencies() already handles. Let it through so
-    // those old type servers get merged. Everything else (notably C11
-    // .debug$S, whose subsection layout the C13 reader can't parse) stays
-    // rejected.
+    // MSVC 6.0 /Zi emits .debug$T and .debug$S with the old CodeView "C11"
+    // signature (CV_SIGNATURE_C11 = 2) instead of C13 (4).
+    //
+    // For .debug$T, the record that follows is a normal CVType -- an old
+    // LF_TYPESERVER / LF_TYPESERVER_ST pointing at a PDB 2.0 type server --
+    // which the type-server path in ObjFile::initializeDependencies()
+    // already handles.
+    //
+    // For .debug$S, ObjFile::readSection() already rewrote this chunk's old
+    // "_ST" symbol kinds to modern equivalents in place (see Pdb2Symbols.h)
+    // and installed the result via setDebugSOverride -- what getContents()
+    // returns here IS that converted buffer, just still C11-tagged since
+    // the rewrite doesn't touch the magic. Old .debug$S has no subsection
+    // framing (unlike modern C13), so callers must not treat the stripped
+    // bytes as a subsection array -- see the callers in PDB.cpp, which check
+    // isOldCodeViewSymbols() before parsing.
     constexpr uint32_t CV_SIGNATURE_C11 = 2;
-    if (sectionName == ".debug$T" && magic == CV_SIGNATURE_C11)
+    if ((sectionName == ".debug$T" || sectionName == ".debug$S") &&
+        magic == CV_SIGNATURE_C11)
       return data.slice(4);
     warn("ignoring section " + sectionName + " with unrecognized magic 0x" +
          utohexstr(magic));
