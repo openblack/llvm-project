@@ -12,6 +12,7 @@
 #include "Config.h"
 #include "DebugTypes.h"
 #include "Driver.h"
+#include "Pdb2Symbols.h"
 #include "SymbolTable.h"
 #include "Symbols.h"
 #include "TypeMerger.h"
@@ -657,23 +658,25 @@ Error PDBLinker::writeAllModuleSymbolRecords(ObjFile *file,
       continue;
 
     ArrayRef<uint8_t> sectionContents = debugChunk->getContents();
-    auto contents =
-        SectionChunk::consumeDebugMagic(sectionContents, ".debug$S");
-    DebugSubsectionArray subsections;
-    BinaryStreamReader reader(contents, llvm::endianness::little);
-    exitOnErr(reader.readArray(subsections, contents.size()));
+    // Whether this chunk got an old-format override at load time (see
+    // Pdb2Symbols.h) is the signal to use here, not re-inspecting
+    // sectionContents: conversion rewrites the bare case's leading kind
+    // value (what isBareOldCodeViewSymbols keys on) from old to modern, so
+    // checking it again post-conversion would always come back false. The
+    // magic bytes are never touched by conversion, so isOldCodeViewSymbols
+    // remains valid to tell whether there's a magic to strip.
+    bool oldFormat = !file->getDebugSOverride(debugChunk).empty();
+    bool magicPrefixed = isOldCodeViewSymbols(sectionContents);
+    ArrayRef<uint8_t> contents =
+        magicPrefixed ? SectionChunk::consumeDebugMagic(sectionContents,
+                                                        ".debug$S")
+                      : sectionContents;
 
     uint32_t nextRelocIndex = 0;
-    for (const DebugSubsectionRecord &ss : subsections) {
-      if (ss.kind() != DebugSubsectionKind::Symbols)
-        continue;
-
+    auto processSymbols = [&](ArrayRef<uint8_t> symsBuffer) -> Error {
       uint32_t moduleSymStart = writer.getOffset();
       scopes.clear();
       storage.clear();
-      ArrayRef<uint8_t> symsBuffer;
-      BinaryStreamRef sr = ss.getRecordData();
-      cantFail(sr.readBytes(0, sr.getLength(), symsBuffer));
       auto ec = forEachCodeViewRecord<CVSymbol>(
           symsBuffer, [&](CVSymbol sym) -> llvm::Error {
             // Track the current scope. Only update records in the postmerge
@@ -704,7 +707,31 @@ Error PDBLinker::writeAllModuleSymbolRecords(ObjFile *file,
       // at once.
       // TODO: Consider buffering symbols for the entire object file to reduce
       // overhead even further.
-      if (Error e = writer.writeBytes(storage))
+      return writer.writeBytes(storage);
+    };
+
+    // Old (VC6 CV_SIGNATURE_C11, or bare per-function continuation) .debug$S
+    // has no subsection framing: the whole thing (already converted from
+    // "_ST" kinds; see Pdb2Symbols.h) IS one flat symbol stream. Modern
+    // .debug$S wraps symbol data in a Kind=Symbols subsection alongside
+    // others (StringTable, Lines, ...).
+    if (oldFormat) {
+      if (Error e = processSymbols(contents))
+        return e;
+      continue;
+    }
+
+    DebugSubsectionArray subsections;
+    BinaryStreamReader reader(contents, llvm::endianness::little);
+    exitOnErr(reader.readArray(subsections, contents.size()));
+
+    for (const DebugSubsectionRecord &ss : subsections) {
+      if (ss.kind() != DebugSubsectionKind::Symbols)
+        continue;
+      ArrayRef<uint8_t> symsBuffer;
+      BinaryStreamRef sr = ss.getRecordData();
+      cantFail(sr.readBytes(0, sr.getLength(), symsBuffer));
+      if (Error e = processSymbols(symsBuffer))
         return e;
     }
   }
@@ -759,16 +786,40 @@ translateStringTableIndex(COFFLinkerContext &ctx, uint32_t objIndex,
 void DebugSHandler::handleDebugS(SectionChunk *debugChunk) {
   // Note that we are processing the *unrelocated* section contents. They will
   // be relocated later during PDB writing.
-  ArrayRef<uint8_t> contents = debugChunk->getContents();
-  contents = SectionChunk::consumeDebugMagic(contents, ".debug$S");
-  DebugSubsectionArray subsections;
-  BinaryStreamReader reader(contents, llvm::endianness::little);
+  ArrayRef<uint8_t> rawContents = debugChunk->getContents();
+  // Whether this chunk got an old-format override at load time (see
+  // Pdb2Symbols.h) is the signal to use here, not re-inspecting
+  // rawContents: conversion rewrites the bare case's leading kind value
+  // from old to modern, so checking it again post-conversion would always
+  // come back false. The magic bytes are never touched by conversion, so
+  // isOldCodeViewSymbols remains valid to tell whether there's a magic to
+  // strip.
+  bool oldFormat = !file.getDebugSOverride(debugChunk).empty();
+  bool magicPrefixed = isOldCodeViewSymbols(rawContents);
+  ArrayRef<uint8_t> contents =
+      magicPrefixed ? SectionChunk::consumeDebugMagic(rawContents, ".debug$S")
+                    : rawContents;
   ExitOnError exitOnErr;
-  exitOnErr(reader.readArray(subsections, contents.size()));
   debugChunk->sortRelocations();
 
   // Reset the relocation index, since this is a new section.
   nextRelocIndex = 0;
+
+  // Old (VC6 CV_SIGNATURE_C11, or bare per-function continuation) .debug$S
+  // has no subsection framing: the whole thing (already converted from
+  // "_ST" kinds; see Pdb2Symbols.h) IS one flat symbol stream, and this
+  // format has no StringTable/FileChecksums/Lines/etc subsections to look
+  // for.
+  if (oldFormat) {
+    linker.analyzeSymbolSubsection(
+        debugChunk, moduleStreamSize, nextRelocIndex, stringTableFixups,
+        BinaryStreamRef(contents, llvm::endianness::little));
+    return;
+  }
+
+  DebugSubsectionArray subsections;
+  BinaryStreamReader reader(contents, llvm::endianness::little);
+  exitOnErr(reader.readArray(subsections, contents.size()));
 
   for (const DebugSubsectionRecord &ss : subsections) {
     // Ignore subsections with the 'ignore' bit. Some versions of the Visual C++
@@ -1775,6 +1826,16 @@ static bool findLineTable(const SectionChunk *c, uint32_t addr,
 
   for (SectionChunk *dbgC : c->file->getDebugChunks()) {
     if (dbgC->getSectionName() != ".debug$S")
+      continue;
+    // Old (VC6 CV_SIGNATURE_C11, or bare per-function continuation)
+    // .debug$S is a flat symbol stream with no StringTable/FileChecksums/
+    // Lines subsections to look for (see Pdb2Symbols.h) -- nothing here
+    // applies to it. Whether this chunk got an old-format override at load
+    // time is the signal (see the comment in handleDebugS): conversion
+    // rewrites the bare case's leading kind value, so re-checking
+    // isBareOldCodeViewSymbols against the (already-converted) contents
+    // here would always come back false.
+    if (!dbgC->file->getDebugSOverride(dbgC).empty())
       continue;
 
     // Build a mapping of SECREL relocations in dbgC that refer to `c`.

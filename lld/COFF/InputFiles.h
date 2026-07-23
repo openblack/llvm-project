@@ -144,6 +144,15 @@ public:
   MachineTypes getMachineType() const override;
   ArrayRef<Chunk *> getChunks() { return chunks; }
   ArrayRef<SectionChunk *> getDebugChunks() { return debugChunks; }
+
+  // See debugSOverrides below.
+  void setDebugSOverride(const SectionChunk *sc, ArrayRef<uint8_t> data) {
+    debugSOverrides[sc] = data;
+  }
+  ArrayRef<uint8_t> getDebugSOverride(const SectionChunk *sc) const {
+    auto it = debugSOverrides.find(sc);
+    return it == debugSOverrides.end() ? ArrayRef<uint8_t>() : it->second;
+  }
   ArrayRef<SectionChunk *> getSXDataChunks() { return sxDataChunks; }
   ArrayRef<SectionChunk *> getGuardFidChunks() { return guardFidChunks; }
   ArrayRef<SectionChunk *> getGuardIATChunks() { return guardIATChunks; }
@@ -288,6 +297,16 @@ private:
 
   // CodeView debug info sections.
   std::vector<SectionChunk *> debugChunks;
+
+  // Overrides the contents SectionChunk::getContents() would otherwise
+  // derive from the raw COFF section, for VC6 .debug$S chunks whose old
+  // "_ST" symbol kinds have been rewritten to modern equivalents (see
+  // Pdb2Symbols.h). Same total size as the original, so this chunk's COFF
+  // relocations remain valid without adjustment. Keyed by ObjFile rather
+  // than added as a SectionChunk field: SectionChunk has a static_assert on
+  // its size (there can be very many of them), while ObjFile instances are
+  // comparatively rare.
+  llvm::DenseMap<const SectionChunk *, ArrayRef<uint8_t>> debugSOverrides;
 
   // Chunks containing symbol table indices of exception handlers. Only used for
   // 32-bit x86.

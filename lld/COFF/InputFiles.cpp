@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "InputFiles.h"
+#include "Pdb2Symbols.h"
 #include "Pdb2TypeServer.h"
 #include "COFFLinkerContext.h"
 #include "Chunks.h"
@@ -320,8 +321,27 @@ SectionChunk *ObjFile::readSection(uint32_t sectionNumber,
 
   // CodeView sections are stored to a different vector because they are not
   // linked in the regular manner.
-  if (c->isCodeView())
+  if (c->isCodeView()) {
     debugChunks.push_back(c);
+    // MSVC 6.0 /Zi emits .debug$S with the old CV_SIGNATURE_C11 format (a
+    // flat symbol stream using old "_ST" kinds; see Pdb2Symbols.h) -- and an
+    // object with more than one function has additional .debug$S sections,
+    // one per function, that carry no magic at all (a "bare" continuation
+    // starting directly with S_GPROC32_ST/S_LPROC32_ST). Convert either kind
+    // in place now, once, rather than at each of the several places that
+    // later read this chunk's contents.
+    if (name == ".debug$S" &&
+        (isOldCodeViewSymbols(c->getContents()) ||
+         isBareOldCodeViewSymbols(c->getContents()))) {
+      if (Expected<ArrayRef<uint8_t>> converted =
+              convertOldCodeViewSymbols(c->getContents(), bAlloc()))
+        setDebugSOverride(c, *converted);
+      else
+        Warn(symtab.ctx) << "failed to convert VC6 .debug$S in "
+                        << toString(this) << ": "
+                        << toString(converted.takeError());
+    }
+  }
   else if (name == ".gfids$y")
     guardFidChunks.push_back(c);
   else if (name == ".giats$y")
