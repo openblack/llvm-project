@@ -1253,6 +1253,33 @@ void Writer::createMiscChunks() {
     insertCtorDtorSymbols();
 }
 
+// VC6 link.exe puts the debug directory in .rdata immediately after the import
+// address table, not at the end of the section: its own output places it at the
+// first free offset past the IAT (verified on a minimal /debug link and on the
+// shipped LHaudiodllR.dll / LHMultiplayerR.dll / Black & White 1.30 images).
+// mergeSections() already sorts rdataSec into VC6's priority bands, but the
+// debug chunks are created after that sort, so appending would drop the
+// directory past .edata and leave a hole where the original image has it.
+// Insert it directly after the last .idata$5 chunk instead, i.e. at the head of
+// the .rdata band. Caller restricts this to i386 non-mingw links.
+//
+// This only takes effect when the IAT comes in as input .idata$5 sections. An
+// IAT synthesized from short-format import libraries is made of NonSectionChunks
+// (see DLL.cpp), which no longer identify their section, so an ordinary link
+// finds no anchor and keeps appending as before.
+static void insertAfterImportAddressTable(OutputSection *sec, Chunk *c) {
+  auto isIat = [](const Chunk *chunk) {
+    auto *sc = dyn_cast<SectionChunk>(chunk);
+    return sc && sc->getSectionName().starts_with(".idata$5");
+  };
+  auto it = std::find_if(sec->chunks.rbegin(), sec->chunks.rend(), isIat);
+  if (it == sec->chunks.rend()) {
+    sec->addChunk(c);
+    return;
+  }
+  sec->chunks.insert(it.base(), c);
+}
+
 void Writer::createDebugChunks() {
   llvm::TimeTraceScope timeScope("Debug chunks");
   Configuration *config = &ctx.config;
@@ -1264,7 +1291,10 @@ void Writer::createDebugChunks() {
     debugDirectory =
         make<DebugDirectoryChunk>(ctx, debugRecords, config->repro);
     debugDirectory->setAlignment(4);
-    debugInfoSec->addChunk(debugDirectory);
+    if (config->machine == I386 && debugInfoSec == rdataSec)
+      insertAfterImportAddressTable(debugInfoSec, debugDirectory);
+    else
+      debugInfoSec->addChunk(debugDirectory);
   }
 
   if (config->debug || config->buildIDHash != BuildIDHash::None) {
