@@ -714,7 +714,7 @@ private:
 
 } // anonymous namespace
 
-void IdataContents::create(COFFLinkerContext &ctx) {
+void IdataContents::create(COFFLinkerContext &ctx, bool addNullTerminator) {
   std::vector<std::vector<DefinedImportData *>> v = binImports(ctx, imports);
 
   // Create .idata contents for each DLL.
@@ -764,8 +764,14 @@ void IdataContents::create(COFFLinkerContext &ctx) {
     dir->addressTab = addresses[base];
     dirs.push_back(dir);
   }
-  // Add null terminator.
-  dirs.push_back(make<NullChunk>(sizeof(ImportDirectoryTableEntry), 4));
+  // Add null terminator, unless an input object already provides one or there
+  // is no descriptor array to terminate. A GNU import library supplies its
+  // descriptors as object .idata$2 sections but no terminator, so the linker
+  // must add it. An MSVC-style import library, or an image whose import table
+  // is reproduced verbatim as data, supplies the terminator itself in
+  // .idata$3; synthesizing a second one there would insert 20 stray bytes.
+  if (addNullTerminator)
+    dirs.push_back(make<NullChunk>(sizeof(ImportDirectoryTableEntry), 4));
 }
 
 std::vector<Chunk *> DelayLoadContents::getChunks() {

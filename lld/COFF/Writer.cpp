@@ -939,7 +939,20 @@ bool Writer::fixGnuImportChunks() {
 // terminator in .idata$2.
 void Writer::addSyntheticIdata() {
   uint32_t rdata = IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ;
-  idata.create(ctx);
+
+  // Decide whether the null import descriptor has to be synthesized. It is
+  // needed when this linker generates the descriptors itself, or when object
+  // files supply a descriptor array (a GNU import library) that nothing
+  // terminates. It must not be added when an object already provides the
+  // terminator in .idata$3, nor when there are no descriptors at all.
+  auto hasChunks = [&](StringRef name) {
+    PartialSection *pSec = findPartialSection(name, rdata);
+    return pSec && !pSec->chunks.empty();
+  };
+  bool addNullTerminator =
+      !idata.empty() || (hasChunks(".idata$2") && !hasChunks(".idata$3"));
+
+  idata.create(ctx, addNullTerminator);
 
   // Add the .idata content in the right section groups, to allow
   // chunks from other linked in object files to be grouped together.

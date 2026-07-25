@@ -23,7 +23,11 @@ public:
   void add(DefinedImportData *sym) { imports.push_back(sym); }
   bool empty() { return imports.empty(); }
 
-  void create(COFFLinkerContext &ctx);
+  // addNullTerminator controls whether the null import descriptor that
+  // terminates the .idata$2 array is synthesized. It must be false when an
+  // input object already supplies one (in a .idata$3 section), or when there
+  // is no descriptor array to terminate.
+  void create(COFFLinkerContext &ctx, bool addNullTerminator = true);
 
   std::vector<DefinedImportData *> imports;
   std::vector<Chunk *> dirs;
