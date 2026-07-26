@@ -59,7 +59,8 @@ public:
     SectionKind,
     SectionECKind,
     OtherKind,
-    ImportThunkKind
+    ImportThunkKind,
+    CommonKind
   };
   Kind kind() const { return chunkKind; }
 
@@ -516,9 +517,15 @@ private:
 class CommonChunk : public NonSectionChunk {
 public:
   CommonChunk(const COFFSymbolRef sym);
+  static bool classof(const Chunk *c) { return c->kind() == CommonKind; }
   size_t getSize() const override { return sym.getValue(); }
   uint32_t getOutputCharacteristics() const override;
   StringRef getSectionName() const override { return ".bss"; }
+
+  // A chunk is created for every common symbol in every input object, but
+  // only the one backing the surviving DefinedCommon may be laid out; the
+  // writer marks that one live and discards the rest.
+  bool live = false;
 
 private:
   const COFFSymbolRef sym;

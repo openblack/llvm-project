@@ -1112,6 +1112,15 @@ void Writer::createSections() {
   ctorsSec = createSection(".ctors", data | r | w);
   dtorsSec = createSection(".dtors", data | r | w);
 
+  // A CommonChunk was created for every common symbol in every input object,
+  // but symbol resolution keeps at most one per name (and a regular
+  // definition may supersede even that one). Mark the chunks backing the
+  // surviving DefinedCommon symbols; the rest must not occupy bss.
+  ctx.symtab.forEachSymbol([](Symbol *s) {
+    if (auto *dc = dyn_cast<DefinedCommon>(s))
+      dc->getChunk()->live = true;
+  });
+
   // Then bin chunks by name and output characteristics.
   for (Chunk *c : ctx.symtab.getChunks()) {
     auto *sc = dyn_cast<SectionChunk>(c);
@@ -1120,6 +1129,9 @@ void Writer::createSections() {
         sc->printDiscardedMessage();
       continue;
     }
+    if (auto *cc = dyn_cast<CommonChunk>(c))
+      if (!cc->live)
+        continue;
     StringRef name = c->getSectionName();
     if (shouldStripSectionSuffix(sc, name, ctx.config.mingw))
       name = name.split('$').first;
