@@ -143,6 +143,7 @@ public:
   void parseLazy();
   MachineTypes getMachineType() const override;
   ArrayRef<Chunk *> getChunks() { return chunks; }
+  void sortChunksBySectionOrder();
   ArrayRef<SectionChunk *> getDebugChunks() { return debugChunks; }
 
   // See debugSOverrides below.

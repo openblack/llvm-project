@@ -1121,6 +1121,14 @@ void Writer::createSections() {
       dc->getChunk()->live = true;
   });
 
+  // Restore each input file's section-table order. Associative COMDATs are
+  // read in a deferred pass (their parent's leader must be seen first), which
+  // appends them after the file's other chunks; VC6 link.exe keeps every COMDAT
+  // in section order, so sort here, once all chunks are known.
+  if (ctx.config.machine == I386)
+    for (ObjFile *file : ctx.objFileInstances)
+      file->sortChunksBySectionOrder();
+
   // Then bin chunks by name and output characteristics.
   for (Chunk *c : ctx.symtab.getChunks()) {
     auto *sc = dyn_cast<SectionChunk>(c);

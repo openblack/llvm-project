@@ -239,6 +239,7 @@ void ObjFile::parse() {
   initializeECThunks();
 }
 
+
 const coff_section *ObjFile::getSection(uint32_t i) {
   auto sec = coffObj->getSection(i);
   if (!sec)
@@ -253,6 +254,29 @@ const coff_section *ObjFile::getSection(uint32_t i) {
 // we set the pointer to either nullptr (to mark the section as discarded) or a
 // valid SectionChunk for that section.
 static SectionChunk *const pendingComdat = reinterpret_cast<SectionChunk *>(1);
+
+// Restore the input section table order for this file's chunks.
+//
+// Associative COMDATs can only be read once their parent's leader symbol has
+// been seen, so initializeSymbols() reads them in a deferred pass and appends
+// them after the file's other chunks. MSVC's linker keeps every COMDAT in
+// section-table order, so without this the associative sections (e.g. the
+// scope tables an EH function owns) get grouped at the end of the file's
+// contribution to an output section.
+void ObjFile::sortChunksBySectionOrder() {
+  if (coffObj->getNumberOfSections() == 0)
+    return;
+  const llvm::object::coff_section *first = getSection(1);
+  auto index = [&](Chunk *c) -> size_t {
+    if (auto *sc = dyn_cast<SectionChunk>(c))
+      if (sc->file == this && sc->header)
+        return static_cast<size_t>(sc->header - first);
+    return SIZE_MAX;
+  };
+  llvm::stable_sort(chunks, [&](Chunk *a, Chunk *b) {
+    return index(a) < index(b);
+  });
+}
 
 void ObjFile::initializeChunks() {
   uint32_t numSections = coffObj->getNumberOfSections();
