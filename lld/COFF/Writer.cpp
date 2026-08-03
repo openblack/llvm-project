@@ -2534,7 +2534,11 @@ void Writer::writeSections() {
         memset(secBuf + prevEnd, fill, off - prevEnd);
         prevEnd = off + c->getSize();
       }
-      memset(secBuf + prevEnd, fill, sec->getRawSize() - prevEnd);
+      // Stop at the section's virtual size. What lies between there and the raw
+      // size is file-alignment padding, which belongs to the file rather than to
+      // the section: link.exe leaves it zero, and nothing ever reads it.
+      uint32_t fillEnd = std::max<uint32_t>(prevEnd, sec->getVirtualSize());
+      memset(secBuf + prevEnd, fill, fillEnd - prevEnd);
     }
 
     parallelForEach(sec->chunks, [&](Chunk *c) {
