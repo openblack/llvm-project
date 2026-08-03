@@ -2520,15 +2520,21 @@ void Writer::writeSections() {
     // ADD instructions). Only fill the gaps between chunks. Most
     // chunks overwrite it anyway, but uninitialized data chunks
     // merged into a code section don't.
+    //
+    // VC6 link.exe uses int3 rather than nop for this, so on i386 fill with
+    // that instead. The bytes are alignment padding between contributions and
+    // are never reached, but reproducing an existing image byte for byte needs
+    // whatever filler the original linker chose.
     if ((sec->header.Characteristics & IMAGE_SCN_CNT_CODE) &&
         (ctx.config.machine == AMD64 || ctx.config.machine == I386)) {
+      const int fill = ctx.config.machine == I386 ? 0xCC : 0x90;
       uint32_t prevEnd = 0;
       for (Chunk *c : sec->chunks) {
         uint32_t off = c->getRVA() - sec->getRVA();
-        memset(secBuf + prevEnd, 0x90, off - prevEnd);
+        memset(secBuf + prevEnd, fill, off - prevEnd);
         prevEnd = off + c->getSize();
       }
-      memset(secBuf + prevEnd, 0x90, sec->getRawSize() - prevEnd);
+      memset(secBuf + prevEnd, fill, sec->getRawSize() - prevEnd);
     }
 
     parallelForEach(sec->chunks, [&](Chunk *c) {
