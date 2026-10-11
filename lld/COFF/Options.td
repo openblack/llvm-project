@@ -90,6 +90,8 @@ def mllvm   : P<"mllvm", "Options to pass to LLVM">;
 def nodefaultlib : P<"nodefaultlib", "Remove a default library">;
 def opt     : P<"opt", "Control optimizations">;
 def order   : P<"order", "Put functions in order">;
+def vc6imports : P<"vc6imports",
+    "Lay out the import tables as listed in this file, like vc6 link.exe">;
 def out     : P<"out", "Path to file to write output">;
 def natvis : P<"natvis", "Path to natvis file to embed in the PDB">;
 def pdb : P<"pdb", "PDB file path">;
