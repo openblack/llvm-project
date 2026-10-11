@@ -606,10 +606,11 @@ private:
 class ExportDirectoryChunk : public NonSectionChunk {
 public:
   ExportDirectoryChunk(int baseOrdinal, int maxOrdinal, int nameTabSize,
-                       Chunk *d, Chunk *a, Chunk *n, Chunk *o)
+                       Chunk *d, Chunk *a, Chunk *n, Chunk *o,
+                       uint32_t timeDateStamp)
       : baseOrdinal(baseOrdinal), maxOrdinal(maxOrdinal),
         nameTabSize(nameTabSize), dllName(d), addressTab(a), nameTab(n),
-        ordinalTab(o) {}
+        ordinalTab(o), timeDateStamp(timeDateStamp) {}
 
   size_t getSize() const override {
     return sizeof(export_directory_table_entry);
@@ -619,6 +620,7 @@ public:
     memset(buf, 0, getSize());
 
     auto *e = (export_directory_table_entry *)(buf);
+    e->TimeDateStamp = timeDateStamp;
     e->NameRVA = dllName->getRVA();
     e->OrdinalBase = baseOrdinal;
     e->AddressTableEntries = (maxOrdinal - baseOrdinal) + 1;
@@ -635,6 +637,7 @@ public:
   Chunk *addressTab;
   Chunk *nameTab;
   Chunk *ordinalTab;
+  uint32_t timeDateStamp;
 };
 
 class AddressTableChunk : public NonSectionChunk {
@@ -936,7 +939,13 @@ EdataContents::EdataContents(COFFLinkerContext &ctx) : ctx(ctx) {
   // https://learn.microsoft.com/en-us/cpp/build/reference/export-exports-a-function?view=msvc-170
   assert(baseOrdinal >= 1);
 
-  auto *dllName = make<StringChunk>(sys::path::filename(ctx.config.outputFile));
+  // VC6 link.exe names the DLL after the .def file's LIBRARY statement when
+  // there is one, even if /OUT differs (LNK4070).
+  bool vc6 = ctx.config.machine == I386;
+  StringRef dllNameStr = vc6 && !ctx.config.importName.empty()
+                             ? StringRef(ctx.config.importName)
+                             : sys::path::filename(ctx.config.outputFile);
+  auto *dllName = make<StringChunk>(dllNameStr);
   auto *addressTab = make<AddressTableChunk>(ctx, baseOrdinal, maxOrdinal);
   std::vector<Chunk *> names;
   for (Export &e : ctx.config.exports)
@@ -955,12 +964,18 @@ EdataContents::EdataContents(COFFLinkerContext &ctx) : ctx(ctx) {
   auto *ordinalTab = make<ExportOrdinalChunk>(ctx, baseOrdinal, names.size());
   auto *dir =
       make<ExportDirectoryChunk>(baseOrdinal, maxOrdinal, names.size(), dllName,
-                                 addressTab, nameTab, ordinalTab);
+                                 addressTab, nameTab, ordinalTab,
+                                 vc6 ? ctx.config.timestamp : 0);
   chunks.push_back(dir);
-  chunks.push_back(dllName);
+  // VC6 link.exe stamps the directory with the link time and puts the DLL name
+  // after the ordinal table, just ahead of the export names.
+  if (!vc6)
+    chunks.push_back(dllName);
   chunks.push_back(addressTab);
   chunks.push_back(nameTab);
   chunks.push_back(ordinalTab);
+  if (vc6)
+    chunks.push_back(dllName);
   chunks.insert(chunks.end(), names.begin(), names.end());
   chunks.insert(chunks.end(), forwards.begin(), forwards.end());
 }

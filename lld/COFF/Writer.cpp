@@ -1677,7 +1677,11 @@ void Writer::mergeSections() {
   // [.edata] layout (the IAT stays at the front). i386 only; stable, so the
   // address/link order within each band is preserved.
   if (ctx.config.machine == I386 && rdataSec) {
-    auto prio = [](const Chunk *c) -> int {
+    DenseSet<const Chunk *> edataChunks(edata.chunks.begin(),
+                                        edata.chunks.end());
+    auto prio = [&](const Chunk *c) -> int {
+      if (edataChunks.contains(c))
+        return 50; // synthesized export directory
       auto *sc = dyn_cast<SectionChunk>(c);
       if (!sc)
         return 20; // synthetic chunks (regenerated IAT/import dir): .rdata band
