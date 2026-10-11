@@ -1283,14 +1283,16 @@ void Writer::createMiscChunks() {
 // Insert it directly after the last .idata$5 chunk instead, i.e. at the head of
 // the .rdata band. Caller restricts this to i386 non-mingw links.
 //
-// This only takes effect when the IAT comes in as input .idata$5 sections. An
-// IAT synthesized from short-format import libraries is made of NonSectionChunks
-// (see DLL.cpp), which no longer identify their section, so an ordinary link
+// The IAT is either input .idata$5 sections or, with /vc6imports, the
+// synthesized address table. An ordinary synthesized IAT is made of
+// NonSectionChunks (see DLL.cpp) that are not passed in, so an ordinary link
 // finds no anchor and keeps appending as before.
-static void insertAfterImportAddressTable(OutputSection *sec, Chunk *c) {
-  auto isIat = [](const Chunk *chunk) {
+static void insertAfterImportAddressTable(OutputSection *sec, Chunk *c,
+                                          const DenseSet<Chunk *> &iat) {
+  auto isIat = [&](Chunk *chunk) {
     auto *sc = dyn_cast<SectionChunk>(chunk);
-    return sc && sc->getSectionName().starts_with(".idata$5");
+    return (sc && sc->getSectionName().starts_with(".idata$5")) ||
+           iat.contains(chunk);
   };
   auto it = std::find_if(sec->chunks.rbegin(), sec->chunks.rend(), isIat);
   if (it == sec->chunks.rend()) {
@@ -1311,10 +1313,14 @@ void Writer::createDebugChunks() {
     debugDirectory =
         make<DebugDirectoryChunk>(ctx, debugRecords, config->repro);
     debugDirectory->setAlignment(4);
-    if (config->machine == I386 && debugInfoSec == rdataSec)
-      insertAfterImportAddressTable(debugInfoSec, debugDirectory);
-    else
+    if (config->machine == I386 && debugInfoSec == rdataSec) {
+      DenseSet<Chunk *> iat;
+      if (!config->vc6ImportSlots.empty())
+        iat.insert(idata.addresses.begin(), idata.addresses.end());
+      insertAfterImportAddressTable(debugInfoSec, debugDirectory, iat);
+    } else {
       debugInfoSec->addChunk(debugDirectory);
+    }
   }
 
   if (config->debug || config->buildIDHash != BuildIDHash::None) {
@@ -1679,9 +1685,21 @@ void Writer::mergeSections() {
   if (ctx.config.machine == I386 && rdataSec) {
     DenseSet<const Chunk *> edataChunks(edata.chunks.begin(),
                                         edata.chunks.end());
+    // A /vc6imports import table goes where vc6 link.exe put it too.
+    DenseSet<const Chunk *> iatChunks, idataChunks;
+    if (!ctx.config.vc6ImportSlots.empty()) {
+      iatChunks.insert(idata.addresses.begin(), idata.addresses.end());
+      for (std::vector<Chunk *> *v :
+           {&idata.dirs, &idata.lookups, &idata.hints, &idata.dllNames})
+        idataChunks.insert(v->begin(), v->end());
+    }
     auto prio = [&](const Chunk *c) -> int {
       if (edataChunks.contains(c))
         return 50; // synthesized export directory
+      if (iatChunks.contains(c))
+        return 0; // synthesized import address table
+      if (idataChunks.contains(c))
+        return 40; // synthesized import directory and hint/name area
       auto *sc = dyn_cast<SectionChunk>(c);
       if (!sc)
         return 20; // synthetic chunks (regenerated IAT/import dir): .rdata band

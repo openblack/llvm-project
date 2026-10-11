@@ -29,6 +29,11 @@ public:
   // is no descriptor array to terminate.
   void create(COFFLinkerContext &ctx, bool addNullTerminator = true);
 
+private:
+  // The vc6 link.exe layout given by /vc6imports.
+  void createVC6(COFFLinkerContext &ctx, bool addNullTerminator);
+
+public:
   std::vector<DefinedImportData *> imports;
   std::vector<Chunk *> dirs;
   std::vector<Chunk *> lookups;

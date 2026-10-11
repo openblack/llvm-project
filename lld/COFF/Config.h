@@ -169,6 +169,17 @@ struct Configuration {
   // exestr-style comments left by older linkers (e.g. Intel `#pragma comment`).
   std::vector<StringRef> headerComments;
   std::set<std::string> delayLoads;
+
+  // /vc6imports: the import table layout of a vc6 link.exe image. The DLLs of
+  // the import descriptors, the __imp_ symbols of the IAT slots, and the
+  // entries of the hint/name area ((true, dll) for a DLL name, (false, __imp_
+  // symbol) for a hint/name), each in address order.
+  std::vector<std::string> vc6ImportDescriptors;
+  std::vector<std::string> vc6ImportSlots;
+  std::vector<std::pair<bool, std::string>> vc6ImportNames;
+  // Zero padding an incremental link left after a DLL's lookup table and IAT
+  // entries, keyed by lowercase DLL name.
+  std::map<std::string, std::pair<uint32_t, uint32_t>> vc6ImportPads;
   std::map<std::string, int> dllOrder;
   Symbol *delayLoadHelper = nullptr;
   Symbol *arm64ECIcallHelper = nullptr;

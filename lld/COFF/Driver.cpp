@@ -1142,6 +1142,42 @@ bool LinkerDriver::run() {
   return didWork;
 }
 
+// Parses a /vc6imports: file: "descriptor <dll>", "slot <__imp_symbol>",
+// "dllname <dll>", "hintname <__imp_symbol>" and
+// "pad <dll> <lookups> <addresses>" lines (see Config.h).
+void LinkerDriver::parseVC6ImportsFile(StringRef path) {
+  std::unique_ptr<MemoryBuffer> mb =
+      CHECK(MemoryBuffer::getFile(path, /*IsText=*/false,
+                                  /*RequiresNullTerminator=*/false,
+                                  /*IsVolatile=*/true),
+            "could not open " + path);
+  for (StringRef line : args::getLines(mb->getMemBufferRef())) {
+    auto [kind, value] = line.split(' ');
+    std::string v(value.trim());
+    if (kind == "descriptor")
+      ctx.config.vc6ImportDescriptors.push_back(v);
+    else if (kind == "slot")
+      ctx.config.vc6ImportSlots.push_back(v);
+    else if (kind == "dllname")
+      ctx.config.vc6ImportNames.emplace_back(true, v);
+    else if (kind == "hintname")
+      ctx.config.vc6ImportNames.emplace_back(false, v);
+    else if (kind == "pad") {
+      SmallVector<StringRef, 3> fields;
+      value.trim().split(fields, ' ', -1, false);
+      uint32_t lookupsPad = 0, addressesPad = 0;
+      if (fields.size() != 3 || fields[1].getAsInteger(0, lookupsPad) ||
+          fields[2].getAsInteger(0, addressesPad))
+        Err(ctx) << path << ": bad /vc6imports line: " << line;
+      else
+        ctx.config.vc6ImportPads[fields[0].lower()] = {lookupsPad,
+                                                       addressesPad};
+    } else
+      Err(ctx) << path << ": unknown /vc6imports line: " << line;
+  }
+  ctx.driver.takeBuffer(std::move(mb));
+}
+
 // Parse an /order file. If an option is given, the linker places
 // COMDAT sections in the same order as their names appear in the
 // given file.
@@ -2793,6 +2829,9 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
            (config->manifest == Configuration::Default &&
             !config->manifestDependencies.empty()))
     createSideBySideManifest();
+
+  if (auto *arg = args.getLastArg(OPT_vc6imports))
+    parseVC6ImportsFile(arg->getValue());
 
   // Handle /order. We want to do this at this moment because we
   // need a complete list of comdat sections to warn on nonexistent

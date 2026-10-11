@@ -58,6 +58,22 @@ private:
   uint16_t hint;
 };
 
+// A DLL name in the hint/name area, padded to an even size like the hint/name
+// entries around it, as vc6 link.exe writes them.
+class DLLNameChunk : public NonSectionChunk {
+public:
+  explicit DLLNameChunk(StringRef n) : name(n) { setAlignment(2); }
+  size_t getSize() const override { return alignTo(name.size() + 1, 2); }
+
+  void writeTo(uint8_t *buf) const override {
+    memset(buf, 0, getSize());
+    memcpy(buf, name.data(), name.size());
+  }
+
+private:
+  StringRef name;
+};
+
 // A chunk for the import descriptor table.
 class LookupChunk : public NonSectionChunk {
 public:
@@ -717,7 +733,118 @@ private:
 
 } // anonymous namespace
 
+void IdataContents::createVC6(COFFLinkerContext &ctx, bool addNullTerminator) {
+  const Configuration &config = ctx.config;
+  DenseMap<StringRef, DefinedImportData *> byName;
+  for (DefinedImportData *s : imports)
+    byName[s->getName()] = s;
+
+  // IAT and lookup table entries in slot order; a DLL's slots are contiguous
+  // and end with a null entry.
+  struct Group {
+    Chunk *lookup;
+    Chunk *address;
+    Chunk *name = nullptr;
+  };
+  StringMap<Group> groups;
+  DenseMap<StringRef, Chunk *> hintNames;
+  std::string current;
+  size_t placed = 0;
+  // Terminate a DLL's entries, then add any padding an incremental link left.
+  auto endGroup = [&](const std::string &dll) {
+    lookups.push_back(make<NullChunk>(ctx));
+    addresses.push_back(make<NullChunk>(ctx));
+    auto pad = config.vc6ImportPads.find(dll);
+    if (pad == config.vc6ImportPads.end())
+      return;
+    if (pad->second.first)
+      lookups.push_back(make<NullChunk>(pad->second.first, 1));
+    if (pad->second.second)
+      addresses.push_back(make<NullChunk>(pad->second.second, 1));
+  };
+  for (const std::string &slot : config.vc6ImportSlots) {
+    DefinedImportData *s = byName.lookup(slot);
+    if (!s) {
+      Err(ctx) << "/vc6imports: no import named " << slot;
+      continue;
+    }
+    std::string dll = s->getDLLName().lower();
+    if (dll != current) {
+      if (!current.empty())
+        endGroup(current);
+      if (groups.count(dll))
+        Err(ctx) << "/vc6imports: the slots of " << s->getDLLName()
+                 << " are not contiguous";
+      current = dll;
+    }
+    Chunk *lookup, *address;
+    if (s->getExternalName().empty()) {
+      lookup = make<OrdinalOnlyChunk>(ctx, s->getOrdinal());
+      address = make<OrdinalOnlyChunk>(ctx, s->getOrdinal());
+    } else {
+      auto *c = make<HintNameChunk>(s->getExternalName(), s->getOrdinal());
+      hintNames[s->getName()] = c;
+      lookup = make<LookupChunk>(ctx, c);
+      address = make<LookupChunk>(ctx, c);
+    }
+    if (!groups.count(dll))
+      groups[dll] = {lookup, address};
+    lookups.push_back(lookup);
+    addresses.push_back(address);
+    s->setLocation(address);
+    ++placed;
+  }
+  if (!current.empty())
+    endGroup(current);
+  if (placed != imports.size())
+    Err(ctx) << "/vc6imports: " << imports.size() - placed
+             << " import(s) have no slot";
+
+  // Import descriptors, in descriptor order.
+  for (const std::string &name : config.vc6ImportDescriptors) {
+    auto it = groups.find(StringRef(name).lower());
+    if (it == groups.end()) {
+      Err(ctx) << "/vc6imports: nothing is imported from " << name;
+      continue;
+    }
+    it->second.name = make<DLLNameChunk>(saver().save(name));
+    auto *dir = make<ImportDirectoryChunk>(it->second.name);
+    dir->lookupTab = it->second.lookup;
+    dir->addressTab = it->second.address;
+    dirs.push_back(dir);
+  }
+  if (dirs.size() != groups.size())
+    Err(ctx) << "/vc6imports: " << groups.size() << " DLL(s) imported but "
+             << dirs.size() << " described";
+  if (addNullTerminator)
+    dirs.push_back(make<NullChunk>(sizeof(ImportDirectoryTableEntry), 4));
+
+  // The hint/name area, DLL names among the hint/name entries.
+  for (const auto &[isDll, name] : config.vc6ImportNames) {
+    Chunk *c = nullptr;
+    if (isDll) {
+      auto it = groups.find(StringRef(name).lower());
+      c = it == groups.end() ? nullptr : it->second.name;
+    } else {
+      c = hintNames.lookup(name);
+    }
+    if (!c) {
+      Err(ctx) << "/vc6imports: no " << (isDll ? "DLL" : "hint/name for") << ' '
+               << name;
+      continue;
+    }
+    hints.push_back(c);
+  }
+  if (hints.size() != hintNames.size() + groups.size())
+    Err(ctx) << "/vc6imports: the hint/name area lists " << hints.size()
+             << " entries for " << hintNames.size() + groups.size();
+}
+
 void IdataContents::create(COFFLinkerContext &ctx, bool addNullTerminator) {
+  if (!ctx.config.vc6ImportSlots.empty()) {
+    createVC6(ctx, addNullTerminator);
+    return;
+  }
   std::vector<std::vector<DefinedImportData *>> v = binImports(ctx, imports);
 
   // Create .idata contents for each DLL.
@@ -966,6 +1093,10 @@ EdataContents::EdataContents(COFFLinkerContext &ctx) : ctx(ctx) {
       make<ExportDirectoryChunk>(baseOrdinal, maxOrdinal, names.size(), dllName,
                                  addressTab, nameTab, ordinalTab,
                                  vc6 ? ctx.config.timestamp : 0);
+  // vc6 link.exe starts the export directory on a 16-byte boundary, past the
+  // padding that ends the import tables.
+  if (vc6)
+    dir->setAlignment(16);
   chunks.push_back(dir);
   // VC6 link.exe stamps the directory with the link time and puts the DLL name
   // after the ordinal table, just ahead of the export names.
